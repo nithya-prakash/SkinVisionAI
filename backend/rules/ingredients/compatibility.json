@@ -1,0 +1,72 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2026-09-08",
+  "rules": [
+    {
+      "rule_id": "retinol_glycolic_acid_caution",
+      "ingredient_a": "retinol",
+      "ingredient_b": "glycolic_acid",
+      "severity": "caution",
+      "message": "Combining retinol with glycolic acid may increase irritation. Many dermatology sources suggest alternating nights (glycolic acid one evening, retinol another) rather than applying both at once.",
+      "reason": "Both retinol and glycolic acid (an AHA) can irritate skin on their own; layering them increases that risk for many users.",
+      "source": "Cleveland Clinic",
+      "source_url": "https://my.clevelandclinic.org/health/treatments/23293-retinol",
+      "last_verified": "2026-09-08"
+    },
+    {
+      "rule_id": "retinol_salicylic_acid_caution",
+      "ingredient_a": "retinol",
+      "ingredient_b": "salicylic_acid",
+      "severity": "caution",
+      "message": "Combining retinol with salicylic acid can be drying. A commonly cited approach is using salicylic acid in the morning and retinol at night rather than layering them.",
+      "reason": "Both retinol and salicylic acid (a BHA) can dry out skin; using them at the same time compounds that effect for many users.",
+      "source": "Cleveland Clinic",
+      "source_url": "https://my.clevelandclinic.org/health/treatments/23293-retinol",
+      "last_verified": "2026-09-08"
+    },
+    {
+      "rule_id": "retinol_benzoyl_peroxide_caution",
+      "ingredient_a": "retinol",
+      "ingredient_b": "benzoyl_peroxide",
+      "severity": "caution",
+      "message": "Retinoid + benzoyl peroxide is a recognized, commonly prescribed combination (sold together in products like Epiduo), not something to avoid -- but documented possible side effects of this combination include dryness, irritated skin, peeling, and burning.",
+      "reason": "This is a widely used, FDA-recognized combination for acne treatment, but it carries a documented irritation profile worth being aware of.",
+      "source": "American Academy of Dermatology",
+      "source_url": "https://www.aad.org/public/diseases/acne/derm-treat/treat",
+      "last_verified": "2026-09-08"
+    },
+    {
+      "rule_id": "retinol_ascorbic_acid_informational",
+      "ingredient_a": "retinol",
+      "ingredient_b": "ascorbic_acid",
+      "severity": "informational",
+      "message": "It's commonly recommended to use a vitamin C product in the morning and retinol at night, rather than layering them in the same routine step.",
+      "reason": "This is a routine-sequencing recommendation, not a documented safety concern -- the two are not described as unsafe to combine.",
+      "source": "Cleveland Clinic",
+      "source_url": "https://my.clevelandclinic.org/health/treatments/23293-retinol",
+      "last_verified": "2026-09-08"
+    },
+    {
+      "rule_id": "retinol_niacinamide_informational",
+      "ingredient_a": "retinol",
+      "ingredient_b": "niacinamide",
+      "severity": "informational",
+      "message": "Niacinamide is commonly cited as a complementary pairing with retinol -- it may help offset some of the irritation retinol can cause for certain users, rather than conflicting with it.",
+      "reason": "Niacinamide is noted for skin-protective, soothing effects that may counteract retinol-related irritation.",
+      "source": "Cleveland Clinic",
+      "source_url": "https://my.clevelandclinic.org/health/treatments/23293-retinol",
+      "last_verified": "2026-09-08"
+    },
+    {
+      "rule_id": "retinol_hyaluronic_acid_informational",
+      "ingredient_a": "retinol",
+      "ingredient_b": "hyaluronic_acid",
+      "severity": "informational",
+      "message": "Hyaluronic acid is commonly used alongside retinol to help offset dryness, not because of any conflict between the two ingredients.",
+      "reason": "Hyaluronic acid functions as a hydrating humectant that may counteract retinol-related dryness.",
+      "source": "Cleveland Clinic",
+      "source_url": "https://my.clevelandclinic.org/health/treatments/23293-retinol",
+      "last_verified": "2026-09-08"
+    }
+  ]
+}

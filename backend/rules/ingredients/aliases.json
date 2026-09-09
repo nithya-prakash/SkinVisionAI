@@ -1,0 +1,38 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2026-09-08",
+  "ingredients": [
+    { "canonical_name": "water", "aliases": ["aqua", "eau"] },
+    { "canonical_name": "glycerin", "aliases": ["glycerine", "glycerol"] },
+    { "canonical_name": "niacinamide", "aliases": ["nicotinamide", "vitamin b3"] },
+    { "canonical_name": "panthenol", "aliases": ["provitamin b5", "pro-vitamin b5", "dexpanthenol"] },
+    { "canonical_name": "retinol", "aliases": [] },
+    { "canonical_name": "retinaldehyde", "aliases": ["retinal"] },
+    { "canonical_name": "retinyl_palmitate", "aliases": ["retinyl palmitate"] },
+    { "canonical_name": "tretinoin", "aliases": ["retinoic acid", "all-trans retinoic acid", "all trans retinoic acid"] },
+    { "canonical_name": "glycolic_acid", "aliases": [] },
+    { "canonical_name": "lactic_acid", "aliases": [] },
+    { "canonical_name": "mandelic_acid", "aliases": [] },
+    { "canonical_name": "salicylic_acid", "aliases": ["bha"] },
+    { "canonical_name": "benzoyl_peroxide", "aliases": ["bpo"] },
+    { "canonical_name": "ascorbic_acid", "aliases": ["l-ascorbic acid", "l ascorbic acid"] },
+    { "canonical_name": "sodium_ascorbyl_phosphate", "aliases": ["sap"] },
+    { "canonical_name": "magnesium_ascorbyl_phosphate", "aliases": ["map"] },
+    { "canonical_name": "hyaluronic_acid", "aliases": [] },
+    { "canonical_name": "sodium_hyaluronate", "aliases": [] },
+    { "canonical_name": "ceramide_np", "aliases": ["ceramide 3"] },
+    { "canonical_name": "dimethicone", "aliases": [] },
+    { "canonical_name": "squalane", "aliases": [] },
+    { "canonical_name": "azelaic_acid", "aliases": [] },
+    { "canonical_name": "zinc_oxide", "aliases": [] },
+    { "canonical_name": "titanium_dioxide", "aliases": [] },
+    { "canonical_name": "avobenzone", "aliases": [] },
+    { "canonical_name": "centella_asiatica_extract", "aliases": ["cica"] },
+    { "canonical_name": "fragrance", "aliases": ["parfum"] },
+    { "canonical_name": "phenoxyethanol", "aliases": [] }
+  ],
+  "ambiguous_aliases": {
+    "vitamin a": ["retinol", "retinaldehyde", "retinyl_palmitate", "tretinoin"],
+    "vitamin c": ["ascorbic_acid", "sodium_ascorbyl_phosphate", "magnesium_ascorbyl_phosphate"]
+  }
+}

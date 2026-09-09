@@ -1,0 +1,20 @@
+{
+  "version": "1.0.0",
+  "categories": {
+    "retinoid": ["retinol", "retinaldehyde", "retinyl_palmitate", "tretinoin"],
+    "aha": ["glycolic_acid", "lactic_acid", "mandelic_acid"],
+    "bha": ["salicylic_acid"],
+    "exfoliant": ["glycolic_acid", "lactic_acid", "mandelic_acid", "salicylic_acid", "azelaic_acid"],
+    "vitamin_c": ["ascorbic_acid", "sodium_ascorbyl_phosphate", "magnesium_ascorbyl_phosphate"],
+    "antioxidant": ["ascorbic_acid", "sodium_ascorbyl_phosphate", "magnesium_ascorbyl_phosphate"],
+    "humectant": ["glycerin", "hyaluronic_acid", "sodium_hyaluronate", "panthenol"],
+    "occlusive": ["dimethicone", "squalane", "ceramide_np"],
+    "barrier_support": ["niacinamide", "panthenol", "ceramide_np", "centella_asiatica_extract"],
+    "brightening": ["niacinamide", "ascorbic_acid", "azelaic_acid"],
+    "soothing_agent": ["panthenol", "centella_asiatica_extract"],
+    "sunscreen_filter": ["zinc_oxide", "titanium_dioxide", "avobenzone"],
+    "acne_treatment": ["benzoyl_peroxide", "salicylic_acid", "azelaic_acid"],
+    "preservative": ["phenoxyethanol"],
+    "fragrance": ["fragrance"]
+  }
+}

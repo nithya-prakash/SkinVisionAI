@@ -1,0 +1,54 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-skinvision}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-skinvision}
+      POSTGRES_DB: ${POSTGRES_DB:-skinvision}
+    ports:
+      - "5435:5432"
+    volumes:
+      - skinvision_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-skinvision} -d ${POSTGRES_DB:-skinvision}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: skinvision-ai-api:latest
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-skinvision}:${POSTGRES_PASSWORD:-skinvision}@db:5432/${POSTGRES_DB:-skinvision}
+      FRONTEND_ORIGIN: http://localhost:3010
+    ports:
+      - "8010:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend/data:/app/data
+    command: >
+      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: skinvision-ai-web:latest
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8010
+    ports:
+      - "3010:3000"
+    depends_on:
+      - api
+
+volumes:
+  skinvision_postgres_data:

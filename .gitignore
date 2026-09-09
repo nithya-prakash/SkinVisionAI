@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.egg-info/
+
+# Env / secrets
+.env
+!.env.example
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+
+# Uploaded/processed images and local data (never committed)
+backend/data/
+backend/datasets/images/*
+!backend/datasets/images/.gitkeep
+!backend/datasets/images/*.md
+
+# Generated evaluation reports (Phase 11) -- reproducible via
+# `python -m evaluation`, never committed
+backend/evaluation/reports/*.json
+
+# Local AI coding assistant tooling/config -- never part of the project
+.claude/
+
+# OS
+.DS_Store

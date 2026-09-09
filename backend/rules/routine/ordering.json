@@ -1,0 +1,25 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2026-09-08",
+  "source": "American Academy of Dermatology",
+  "source_url": "https://www.aad.org/public/everyday-care/skin-care-basics/care/apply-skin-care-certain-order",
+  "last_verified": "2026-09-08",
+  "reason": "AAD's recommended sequence is: wash with a gentle cleanser, apply medication/treatment, then apply moisturizer and/or sunscreen. That source groups moisturizer and sunscreen at the same stage; this model places sunscreen last within that stage (after moisturizer) since sunscreen is commonly recommended to be the outermost applied layer so it isn't diluted or displaced by a subsequent product -- this last detail is this model's own reasonable extension of the source, not stated verbatim by it.",
+  "am_steps": [
+    { "category": "cleanser", "step_order": 0 },
+    { "category": "toner", "step_order": 1 },
+    { "category": "treatment", "step_order": 2 },
+    { "category": "serum", "step_order": 2 },
+    { "category": "exfoliant", "step_order": 2 },
+    { "category": "moisturizer", "step_order": 3 },
+    { "category": "sunscreen", "step_order": 4 }
+  ],
+  "pm_steps": [
+    { "category": "cleanser", "step_order": 0 },
+    { "category": "toner", "step_order": 1 },
+    { "category": "treatment", "step_order": 2 },
+    { "category": "serum", "step_order": 2 },
+    { "category": "exfoliant", "step_order": 2 },
+    { "category": "moisturizer", "step_order": 3 }
+  ]
+}

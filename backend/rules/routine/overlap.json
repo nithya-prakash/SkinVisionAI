@@ -1,0 +1,10 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2026-09-08",
+  "source": "American Academy of Dermatology",
+  "source_url": "https://www.aad.org/news/dermatologist-guide-skincare",
+  "last_verified": "2026-09-08",
+  "message": "Repeated exposure to the same active may increase irritation potential depending on formulation, concentration, and frequency.",
+  "reason": "Using multiple products that each contain the same active ingredient increases total exposure to that active. General dermatology guidance cautions that adding too many products or actives to a routine can increase irritation risk, though this does not mean any specific combination is unsafe.",
+  "active_categories": ["retinoid", "aha", "bha", "vitamin_c", "acne_treatment"]
+}
