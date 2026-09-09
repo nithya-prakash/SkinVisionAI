@@ -41,10 +41,14 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      # NEXT_PUBLIC_* variables are inlined into the client bundle at
+      # `next build` time, not read at container start -- they must be
+      # passed as a build arg, not a runtime `environment:` entry (which
+      # would silently have no effect on the built frontend).
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8010}
     image: skinvision-ai-web:latest
     restart: unless-stopped
-    environment:
-      NEXT_PUBLIC_API_BASE_URL: http://localhost:8010
     ports:
       - "3010:3000"
     depends_on:

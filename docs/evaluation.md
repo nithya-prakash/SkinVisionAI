@@ -1,7 +1,7 @@
 # Evaluation Harness (Phase 11)
 
 **Status: implemented.** This document describes the evaluation harness
-as built. See [docs/phase-10-plan.md](phase-10-plan.md)-style history:
+as built. See [docs/history/phase-10-plan.md](history/phase-10-plan.md)-style history:
 the plan this replaced lived in this same file (Phase 1 placeholder,
 kept accurate rather than a separate archived plan doc, since the
 original placeholder never diverged from what got built).
@@ -275,6 +275,102 @@ anything — so a red test in `pytest tests/evaluation/` (or a
 behavior change happened in the code between runs, not sampling noise.
 Wire `pytest tests/evaluation/` (or the whole suite, which includes it)
 into CI the same way the rest of this project's tests already are.
+
+## Maintaining and extending the evaluation dataset
+
+A practical guide for adding or changing a case, written for whoever
+picks this project up next.
+
+**Where the cases live.** All 104 cases are plain Python data in
+`backend/evaluation/datasets/` — one module per subsystem
+(`vision.py`, `ingredients.py`, `routine.py`, `comparison.py`, `llm.py`,
+`agent.py`, `safety.py`). There is no separate fixtures directory, no
+JSON/YAML case format, and no generator script — a case is a dataclass
+instance in the same file as every other case for that subsystem, with
+its expected result as a field on the case itself (see
+[Architecture](#architecture) above for why). `backend/evaluation/runners/`
+has the matching runner per subsystem, and `backend/tests/evaluation/`
+wires each dataset into pytest.
+
+**How to add a new case:**
+
+1. Open the dataset module for the subsystem you're touching (e.g.
+   `evaluation/datasets/agent.py` for a new agent tool — see
+   [docs/agent.md](agent.md#adding-a-new-agent-tool-developer-runbook)
+   step 9 for the agent-specific version of this).
+2. Add a new case instance to that module's tuple of cases, following
+   the existing dataclass shape exactly (e.g. `CompatibilityCase`,
+   `ToolSelectionCase`). Give it a unique, descriptive `case_id`
+   (existing ones read like
+   `"agent_tool_selection_compatibility_question"` — specific enough to
+   locate the exact scenario from a failure report alone) and a
+   one-line `description` of what it proves.
+3. Compute the expected result by actually running the real production
+   code against your input first (e.g. call `get_rule_set()` or
+   `check_ingredient_compatibility(...)` directly in a Python shell, or
+   run the case through `pytest tests/evaluation/` once with an
+   intentionally wrong `expect_*` value and read the failure's actual
+   value from the assertion message) — never hand-guess an expected
+   value and never copy one from documentation. The dataset must always
+   describe what the code actually does, not what a doc or comment
+   claims it does.
+4. Run `docker compose exec api pytest tests/evaluation/ -k <your_case_id>`
+   (or the whole suite) to confirm it passes, then run the full suite
+   once more to confirm nothing else broke.
+
+**When it's correct to change an expected result** — the deterministic
+rule or logic it's checking genuinely changed on purpose (a rule file
+in `backend/rules/` was intentionally edited, a scoring threshold in
+`app/vision/` was deliberately retuned, a schema field was added). In
+that case, update the expectation *and* explain why in the commit —
+the dataset should always describe current, intended behavior.
+
+**When changing an expected result is actually hiding a regression** —
+if a case starts failing and the fix under consideration is "update the
+expected value to match the new (failing) output" without first
+understanding *why* the output changed, stop. Check whether a code
+change caused an unintended behavior shift (a rule file edit that
+affected a pair it wasn't meant to, a refactor that altered rounding,
+an agent change that broke grounding for an existing tool) before
+touching the expectation. A dataset that gets silently "fixed" to match
+whatever the code currently does stops being a regression gate and
+becomes a tautology — the whole point of [Regression
+detection](#regression-detection) above is that a red case means
+something real changed.
+
+**Running the harness:**
+
+```bash
+docker compose exec api pytest tests/evaluation/     # regression gate, no report file
+docker compose exec api python -m evaluation            # standalone run + JSON report
+```
+
+Both run fully offline by default (see [Running it](#running-it) above)
+— no `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` or network access is used, so
+there's nothing extra to configure to run either command locally or in
+Docker.
+
+**Reviewing cases when a deterministic rule changes.** Any edit to
+`backend/rules/ingredients/*.json` or `backend/rules/routine/*.json`
+should be followed by re-running `tests/evaluation/` before merging,
+specifically checking:
+
+- Did any *existing* case's expectation start failing (an unintended
+  side effect of the rule change)?
+- Does the change need a *new* case (a new compatibility rule, a new
+  canonical ingredient, a new routine-ordering exception) so the change
+  itself is covered going forward, not just the rules that already
+  existed?
+
+**Why these numbers are not a clinical/medical accuracy claim.** Every
+number this harness reports is an engineering correctness and
+regression-protection metric, never a diagnostic or clinical accuracy
+measurement — see [Not a clinical accuracy benchmark](#not-a-clinical-accuracy-benchmark)
+below for the full reasoning. Practically, this means: never add a case
+whose framing implies real-world medical ground truth (e.g. "correctly
+detects rosacea"), and never cite a pass rate as if it were a
+sensitivity/specificity figure in a report, resume, or conversation
+about this project.
 
 ## Not a clinical accuracy benchmark
 

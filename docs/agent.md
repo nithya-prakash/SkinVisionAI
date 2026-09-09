@@ -409,6 +409,128 @@ than this phase actually needed:
   contract](#provider-tool-calling-contract)) — a separate assembly tool
   would have been redundant.
 
+## Adding a new agent tool (developer runbook)
+
+A concrete walkthrough using an existing tool, `get_ingredient_information`
+(`backend/app/agent/tools.py`), as the template. Nothing here is
+aspirational — every step names the actual file the real tool uses.
+
+1. **Deterministic domain logic goes where it already lives, not in the
+   agent layer.** `get_ingredient_information` does no ingredient lookup
+   itself — it calls `app.ingredients.normalizer.normalize_ingredient`,
+   the same function `POST /api/products/analyze` already uses. If a new
+   tool needs a computation that doesn't exist yet, implement it in the
+   relevant domain module (`app/ingredients/`, `app/routine/`,
+   `app/products/`, `app/vision/`) exactly as if it were a new API
+   endpoint's logic — never inline it in `app/agent/tools.py`. The rule
+   this document opened with still applies: the agent orchestrates and
+   narrates, it never *is* the deterministic logic.
+
+2. **The tool wrapper is a thin function in `app/agent/tools.py`.**
+   `_handle_get_ingredient_information(input_) -> NormalizedIngredient`
+   is nine lines: unpack the validated Pydantic input, call the
+   deterministic function, return its real output model unchanged. A
+   tool handler must stay pure and synchronous — no database access, no
+   network call, no LLM call (see [The five tools](#the-five-tools)). If
+   a wrapper needs more than a few lines of glue, that's a signal the
+   logic belongs in step 1's domain module instead.
+
+3. **Define the input/output schema as ordinary Pydantic models.**
+   `GetIngredientInformationInput` (`ingredient: str`, `extra="forbid"`)
+   is the tool's input contract; reuse an existing API schema for output
+   when one already exists (`NormalizedIngredient`, from
+   `app/schemas/ingredient.py`) rather than inventing a parallel shape.
+   `extra="forbid"` on every input model matters: it's what makes a
+   malformed or extra-field tool call fail validation instead of
+   silently ignoring unexpected input.
+
+4. **Register it in `build_tool_registry()`** (`app/agent/tools.py`):
+   a `ToolDefinition(name=..., description=..., input_model=...,
+   output_model=..., handler=...)` passed to `registry.register(...)`.
+   The `description` is what the LLM actually reads to decide when to
+   call the tool — write it the way `get_ingredient_information`'s is
+   written: state exactly what the tool does and when to use it, and
+   note if it's scoped ("never a general-knowledge ... description").
+   `ToolRegistry.specs()` derives the JSON schema offered to the model
+   directly from `input_model`, so there is no separate schema to keep
+   in sync by hand.
+
+5. **Argument validation is automatic, not something a handler writes.**
+   `execute_tool` (`app/agent/registry.py`) always runs
+   `input_model.model_validate(raw_arguments)` before the handler is
+   called — a malformed or out-of-range argument never reaches handler
+   code. A new tool gets this for free from its `input_model`'s field
+   constraints (`Field(min_length=..., max_length=...)`, etc.) — add
+   constraints there, not as manual checks inside the handler.
+
+6. **The result becomes a `ToolCallTraceEntry`** (`app/agent/trace.py`)
+   automatically once the tool executes through `execute_tool` — no
+   extra wiring needed in a new tool. If the result could plausibly be
+   large (a new tool returning a bigger structure than the existing five
+   do), check that `app.agent.trace.bound_tool_result`'s size bound
+   still produces a sane truncated stand-in for it; don't special-case
+   truncation in the handler itself.
+
+7. **Grounding is automatic if the output model reuses `_FACT_KEYS`
+   fields.** `app.agent.validation.build_ground_truth` walks every
+   successful trace entry's result looking for known field names
+   (`rule_id`, `ingredient`/`ingredient_a`/`ingredient_b`/
+   `normalized_name`, `source`, `source_url`). If a new tool's output
+   model reuses an existing schema (as `get_ingredient_information`
+   reuses `NormalizedIngredient`), grounding works immediately. If it
+   introduces a genuinely new kind of fact (a new citation-bearing
+   field, say), extend `_FACT_KEYS`/`_collect` in
+   `app/agent/validation.py` deliberately — otherwise the new tool's
+   real output won't ground anything the model says, and the answer will
+   be rejected as unsupported.
+
+8. **Tests to add**, mirroring the existing five tools' coverage:
+   - `tests/agent/test_tools.py` — the handler called directly with a
+     valid `input_model` instance, asserting it returns the same result
+     the underlying deterministic function would.
+   - `tests/agent/test_registry.py` — the tool is registered, its spec
+     round-trips through `ToolRegistry.specs()`, and a malformed input
+     is rejected before the handler runs.
+   - `tests/agent/test_agent_loop.py` — at least one `agent_script`-driven
+     scenario where `FakeLLMProvider` calls the new tool and the loop
+     records a correct trace entry (see the five required scenarios this
+     file already covers).
+   - `tests/agent/test_validation.py` — if the tool's output introduces a
+     new fact type (step 7), a case proving an answer citing that fact
+     without a supporting trace entry is rejected, and one citing it
+     *with* a supporting entry is accepted.
+
+9. **Evaluation cases to add** in `backend/evaluation/datasets/agent.py`:
+   a `ToolSelectionCase` (or the equivalent case type) with a realistic
+   `user_message`, `expect_tool_name` set to the new tool, and a scripted
+   `AgentLLMResponse` sequence via the `_call(...)`/`_final(...)` helpers
+   already used for every existing case — see
+   [docs/evaluation.md](evaluation.md#maintaining-and-extending-the-evaluation-dataset)
+   for when a case counts as a real regression check versus a trivial
+   one. Fully offline and scripted, like every other agent eval case —
+   never a live-provider call.
+
+10. **Verify the new tool cannot bypass the trust boundary** before
+    considering it done:
+    - Confirm the handler never calls the database, network, or an LLM
+      (grep `app/agent/tools.py` for any `await`/`import` that isn't a
+      domain module — none of the existing five have one).
+    - Confirm the output model has no field for a severity, citation, or
+      numeric claim the deterministic function itself didn't compute —
+      the same structural guarantee `AgentFinalAnswerLLMOutput` has (see
+      [The one rule this document exists to explain](#the-one-rule-this-document-exists-to-explain)).
+    - Confirm an unregistered/misspelled tool name still gets rejected by
+      `execute_tool` before any code runs — this doesn't change per new
+      tool, but re-running
+      `tests/agent/test_registry.py::test_execute_tool_unknown_tool_rejected_cleanly`
+      after a registry change is a fast sanity check that registration
+      didn't accidentally introduce a name-matching shortcut.
+    - Confirm `tests/agent/test_validation.py` still rejects an answer
+      that references the new tool's kind of fact (a rule id, an
+      ingredient name, a citation) when the new tool was *not* actually
+      called — i.e. the new fact type is grounded, not just passed
+      through.
+
 ## Limitations
 
 - The anti-hallucination validator is the same heuristic

@@ -9,7 +9,7 @@ it — this document exists so those individually-correct pieces are also
 visible in one place, per Phase 10's own audit finding that no single
 document previously stated all of them together.
 
-See [docs/phase-10-plan.md](phase-10-plan.md) for the approved plan this
+See [docs/history/phase-10-plan.md](history/phase-10-plan.md) for the approved plan this
 was built from (kept for history; this document is the as-built
 reference).
 

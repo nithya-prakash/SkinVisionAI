@@ -19,7 +19,7 @@ compatibility verdict, a score, or a citation itself. Nothing in
 
 ## Scope: small and curated, not a database
 
-27 canonical ingredients and 6 compatibility rules — a portfolio-scope
+28 canonical ingredients and 6 compatibility rules — a portfolio-scope
 engine demonstrating architecture, not an attempt at a comprehensive
 cosmetic-ingredient database. Every rule is sourced from a real,
 independently verifiable page at a recognized medical/dermatology
@@ -62,7 +62,7 @@ listing one ingredient's synonyms together (`"Water / Aqua / Eau"` — all
 three resolve to the same canonical ingredient anyway, so splitting them
 has no effect on the final result); it would incorrectly split a compound
 ingredient name that itself contains a literal `/` — none of this
-project's 27 canonical ingredients have such a name, so that tradeoff is
+project's 28 canonical ingredients have such a name, so that tradeoff is
 accepted rather than adding special-case logic for a scenario the rule set
 doesn't cover. Empty/whitespace-only input or delimiter-only input parses
 to an empty list — a no-op, not an error. Original casing and wording are

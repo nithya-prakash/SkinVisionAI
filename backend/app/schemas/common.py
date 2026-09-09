@@ -4,50 +4,6 @@ from __future__ import annotations
 from enum import StrEnum
 
 
-class SkinGoal(StrEnum):
-    """Self-reported skincare goals a user may select (multi-select)."""
-
-    HYDRATION = "hydration"
-    OIL_CONTROL = "oil_control"
-    TEXTURE = "texture"
-    UNEVEN_TONE = "uneven_tone"
-    REDNESS = "redness"
-    ANTI_AGING = "anti_aging"
-    BARRIER_SUPPORT = "barrier_support"
-    GENERAL_SKINCARE = "general_skincare"
-
-
-class SkinType(StrEnum):
-    """Self-reported skin type. Never treated as a medical classification."""
-
-    DRY = "dry"
-    OILY = "oily"
-    COMBINATION = "combination"
-    NORMAL = "normal"
-    UNKNOWN = "unknown"
-
-
-class RoutineFrequency(StrEnum):
-    """How often the user says they follow a skincare routine."""
-
-    DAILY = "daily"
-    FEW_TIMES_A_WEEK = "few_times_a_week"
-    WEEKLY = "weekly"
-    OCCASIONALLY = "occasionally"
-    RARELY = "rarely"
-    PREFER_NOT_TO_SAY = "prefer_not_to_say"
-
-
-class SensitivityPreference(StrEnum):
-    """Self-reported sensitivity considerations for product recommendations."""
-
-    FRAGRANCE_FREE = "fragrance_free"
-    ALCOHOL_FREE = "alcohol_free"
-    ESSENTIAL_OIL_FREE = "essential_oil_free"
-    LOW_IRRITATION_PRIORITY = "low_irritation_priority"
-    NONE = "none"
-
-
 class ProductCategory(StrEnum):
     """Broad product categories used for routine placement and comparison."""
 

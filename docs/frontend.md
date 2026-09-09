@@ -2,7 +2,7 @@
 
 This document covers the Next.js frontend's screen inventory, shared
 component set, and the session/history UX Phase 9 added on top of
-Phase 8's persistence. See [docs/phase-9-plan.md](phase-9-plan.md) for
+Phase 8's persistence. See [docs/history/phase-9-plan.md](history/phase-9-plan.md) for
 the approved plan this was built from (kept for history; this document
 is the as-built reference).
 
@@ -79,7 +79,7 @@ session history. View history.") straight to `/history`.
 ## Shared components
 
 Built only where ≥2 pages had actual, verified duplication (not
-speculative) — see `docs/phase-9-plan.md` §4 for the before/after audit
+speculative) — see `docs/history/phase-9-plan.md` §4 for the before/after audit
 each one is based on.
 
 | Component | File | Replaces |
@@ -113,3 +113,19 @@ shared shape would fight the content rather than simplify it.
 `components/PagePlaceholder.tsx` — the Phase 1 scaffold placeholder,
 confirmed to have zero remaining imports once every screen had a real
 implementation — was deleted rather than left as unreferenced code.
+
+## A note on `frontend/AGENTS.md`
+
+`frontend/AGENTS.md` is **not** part of this application. It is
+generated and re-written by Next.js's own dev server tooling
+(`node_modules/next/dist/server/lib/generate-agent-files.js`, confirmed
+present in this repo's installed dependencies) — a stock file Next.js
+16 writes into any project to brief AI coding tools on breaking changes
+in that Next.js version. It carries no SkinVision AI-specific
+instructions, prompts, or security policy, and is untouched by this
+project's own code, docs, or agent (`app/agent/`, `docs/agent.md`).
+It's committed (rather than gitignored) because Next.js regenerates it
+automatically if deleted — see the file's own comment — so removing it
+from version control would just reintroduce an uncommitted diff on
+every `next dev` run. Read it as generated tooling output, not as an
+application-level instruction or prompt.

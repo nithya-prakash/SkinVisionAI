@@ -18,7 +18,7 @@ readable, but preserved here for anyone who wants the build history.
   configurable thresholds, deterministic/reproducible output, and a
   `/results/[id]` page displaying the results.
 - **Phase 4** — deterministic ingredient parser, normalizer, and
-  compatibility engine (`POST /api/products/analyze`): 27 canonical
+  compatibility engine (`POST /api/products/analyze`): 28 canonical
   ingredients, 6 source-cited rules (Cleveland Clinic, American Academy
   of Dermatology), ambiguous-alias handling, reverse-order/duplicate-safe
   compatibility checking, zero network/LLM dependency (verified with

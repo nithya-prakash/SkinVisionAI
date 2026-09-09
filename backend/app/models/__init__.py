@@ -7,7 +7,6 @@ from app.models.base import Base, TimestampMixin, UUIDPKMixin
 from app.models.session import UserSession
 from app.models.image import ImageMetadata
 from app.models.analysis import SkinAnalysis
-from app.models.questionnaire import QuestionnaireResponse
 from app.models.product import Ingredient, Product
 from app.models.routine import Routine, RoutineItem
 from app.models.routine_analysis import RoutineAnalysisRecord
@@ -21,7 +20,6 @@ __all__ = [
     "UserSession",
     "ImageMetadata",
     "SkinAnalysis",
-    "QuestionnaireResponse",
     "Ingredient",
     "Product",
     "Routine",

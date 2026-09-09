@@ -2,7 +2,7 @@
 
 This document covers what Phase 8 actually added: making the previously
 independent Phase 1–7 capabilities work as one coherent, persistent
-application. See [docs/phase-8-plan.md](phase-8-plan.md) for the
+application. See [docs/history/phase-8-plan.md](history/phase-8-plan.md) for the
 approved plan this was built from (kept for history; this document is
 the as-built reference).
 
@@ -126,7 +126,7 @@ image_uploaded  (POST /api/analysis/upload; quality result attached)
 storing a sixth database value — `image_uploaded` never reaches a
 client; it is always reported as one of the two states above instead.
 This was a deliberate, approved design choice (see
-[docs/phase-8-plan.md](phase-8-plan.md)'s decision log) over adding new
+[docs/history/phase-8-plan.md](history/phase-8-plan.md)'s decision log) over adding new
 stored enum values, since the information needed to derive it was
 already fully present.
 

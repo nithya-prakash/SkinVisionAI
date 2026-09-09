@@ -152,7 +152,6 @@ backend/app/
 | `UserSession` | Anonymous session identity (no auth) |
 | `ImageMetadata` | Uploaded image metadata; never stores raw bytes in DB |
 | `SkinAnalysis` | One analysis run: image + visual observations + structured response |
-| `QuestionnaireResponse` | Self-reported goals/routine/preferences for an analysis |
 | `Ingredient` | Reserved (unused as of Phase 4) canonical ingredient reference table -- the ingredient engine's source of truth is the versioned JSON rule files, not this table; see docs/ingredients.md |
 | `Product` | User-entered product + parsed ingredient list + full compatibility analysis result (`analysis_result`, Phase 4) |
 | `Routine` / `RoutineItem` | User-curated, persisted AM/PM product sequences -- defined Phase 1, still unused (no CRUD endpoint yet); distinct from `RoutineAnalysisRecord` below |
@@ -209,10 +208,22 @@ Three services, `docker-compose.yml`: `db` (PostgreSQL 16), `api`
 (FastAPI, runs `alembic upgrade head` on startup then `uvicorn`), `web`
 (Next.js, standalone production build). No other infrastructure —
 no Redis, no Celery, no message broker, no Kubernetes. `api` reads
-config from `backend/.env`; `web` reads `NEXT_PUBLIC_API_BASE_URL` from
-`frontend/.env.local` (the only value it needs — no secret ever reaches
-the frontend build). See the root `README.md`'s Setup section for the
-exact commands.
+config from `backend/.env` at container start, same as any normal
+server process — no secret ever reaches the frontend build.
+
+`web`'s only configuration value, `NEXT_PUBLIC_API_BASE_URL`, works
+differently: Next.js inlines every `NEXT_PUBLIC_*` variable into the
+client bundle at `next build` time, so it is **not** a runtime setting
+the way `api`'s config is. `docker-compose.yml` passes it to the `web`
+service as a Docker build arg (`build.args`), and `frontend/Dockerfile`
+receives it as an `ARG`/`ENV` pair consumed by the `RUN npm run build`
+step — a value under `environment:` alone would have no effect, since
+the image is already built by the time a container starts. Override it
+for a build with `NEXT_PUBLIC_API_BASE_URL=https://api.example.com
+docker compose build web`; for local (non-Docker) frontend dev, the
+same variable is read from `frontend/.env.local` instead, since
+`next dev`/`next build` inline it from there. See the root `README.md`'s
+Setup section for the exact commands.
 
 ## Phase plan and status
 
@@ -432,6 +443,48 @@ real, verified issue:
   data from repeated local testing across every prior phase, not
   source-controlled) cleared for repository hygiene.
 - No new dependencies, no new migrations, no architectural changes.
+
+## Notes from the Phase 12 follow-up (release-hardening pass)
+
+A second hardening/documentation pass after Phase 12, explicitly scoped
+to cleanup rather than new functionality — no new feature, no new
+migration, no change to the deterministic/LLM trust boundary:
+
+- Fixed a real documentation-drift bug: README and `docs/ingredients.md`
+  said "27 canonical ingredients" while `aliases.json` actually defines
+  28 — corrected everywhere, plus a new test
+  (`tests/ingredients/test_documented_count.py`) that derives the count
+  from the real rule data and fails if a doc claim drifts from it again.
+- Fixed a real Docker build bug: `NEXT_PUBLIC_API_BASE_URL` was only set
+  under `docker-compose.yml`'s `web.environment:` (a runtime setting),
+  but Next.js inlines `NEXT_PUBLIC_*` variables at `next build` time —
+  so changing that value had zero effect on the built frontend, verified
+  by an actual build. Now passed as a Docker build arg instead; see
+  [Docker deployment](#docker-deployment).
+- Removed `app.models.questionnaire.QuestionnaireResponse` (and its
+  matching `app.schemas.questionnaire` DTOs and the `questionnaire_responses`
+  table) after confirming zero references anywhere — no API route, no
+  service, no frontend usage, no test beyond the schema's own now-deleted
+  unit test. Edited into the initial migration directly (not a new
+  migration) since the table was never part of any deployed database's
+  history — see the migration file's own note.
+- Moved `docs/phase-8-plan.md`, `docs/phase-9-plan.md`, and
+  `docs/phase-10-plan.md` (pre-implementation planning documents, each
+  explicitly marked "plan only") into `docs/history/`, updating every
+  cross-reference; the as-built docs (`docs/persistence.md`,
+  `docs/frontend.md`, `docs/safety.md`, etc.) remain the authoritative
+  description of what actually exists.
+- Added a developer runbook for adding a new agent tool
+  ([docs/agent.md](agent.md#adding-a-new-agent-tool-developer-runbook))
+  and a dataset-maintenance guide for the evaluation harness
+  ([docs/evaluation.md](evaluation.md#maintaining-and-extending-the-evaluation-dataset)).
+- Added a provenance note for `frontend/AGENTS.md` (Next.js-generated
+  tooling output, not an application prompt) in
+  [docs/frontend.md](frontend.md#a-note-on-frontendagentsmd).
+- Added `LICENSE` and `CONTRIBUTING.md` for portfolio-repo hygiene.
+- No dependency changes, no new migrations, no change to any
+  deterministic rule, CV algorithm, LLM prompt, validator, rate limit,
+  or the agent's tool-calling contract.
 
 ## Risks and assumptions carried from Phase 1
 

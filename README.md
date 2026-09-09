@@ -191,7 +191,7 @@ Fully offline: every LLM/agent case uses a deterministic
 
 ## Testing
 
-752 backend tests pass (real PostgreSQL, no ORM mocking, run inside
+756 backend tests pass (real PostgreSQL, no ORM mocking, run inside
 Docker) plus the 104 evaluation cases above — both offline-capable.
 
 ```bash
@@ -215,6 +215,12 @@ docker compose up --build
 
 - API: http://localhost:8010 (health check at `/health`)
 - Web: http://localhost:3010
+
+`NEXT_PUBLIC_API_BASE_URL` (the frontend's only config value) is inlined
+into the client bundle at Docker **build** time, not read at container
+start — `docker-compose.yml` passes it to `web` as a build arg. To point
+a build at a different API URL: `NEXT_PUBLIC_API_BASE_URL=https://api.example.com
+docker compose build web`. See [docs/architecture.md](docs/architecture.md#docker-deployment).
 
 **Backend, locally:**
 
@@ -266,7 +272,7 @@ skinvision-ai/
 │   ├── alembic/        versioned database migrations
 │   ├── evaluation/      offline evaluation harness — datasets/, runners/, metrics.py
 │   ├── rules/           versioned, source-cited ingredient/routine rule JSON
-│   ├── tests/           backend test suite (752 tests) + tests/evaluation/
+│   ├── tests/           backend test suite (756 tests) + tests/evaluation/
 │   └── datasets/        gitignored local fixture scaffold (no binary photos ever committed)
 ├── frontend/
 │   └── src/
@@ -275,6 +281,7 @@ skinvision-ai/
 │       ├── components/    shared UI (StatusBadge, ErrorState, EmptyState, Disclaimer, ...)
 │       └── lib/           typed API client, session persistence
 ├── docs/              architecture, vision, ingredients, routine, llm, agent, safety, evaluation, ...
+│   └── history/         superseded pre-implementation phase plans (reference only)
 └── docker-compose.yml   db (Postgres 16) + api (FastAPI) + web (Next.js)
 ```
 
@@ -292,6 +299,7 @@ skinvision-ai/
 - [docs/safety.md](docs/safety.md) — safety architecture, trust boundaries, known limitations
 - [docs/evaluation.md](docs/evaluation.md) — evaluation harness: datasets, runners, metrics, offline execution
 - [docs/phases.md](docs/phases.md) — build history, phase by phase
+- [docs/history/](docs/history/) — superseded pre-implementation phase plans, kept for reference only
 
 ## Limitations
 
@@ -305,7 +313,7 @@ This is a portfolio project, not a clinical tool:
 - **Visual observations are heuristic estimates**, affected by
   lighting, camera quality, makeup, and resolution; not tone-corrected;
   "apparent dryness" is never estimated at all (see [docs/vision.md](docs/vision.md)).
-- **The ingredient rule set is intentionally small and curated** — 27
+- **The ingredient rule set is intentionally small and curated** — 28
   canonical ingredients, 6 source-cited rules, not an exhaustive
   database. Anything not in the rule set is reported as unrecognized,
   never guessed.
@@ -347,3 +355,12 @@ dermatological diagnosis, and is not a substitute for professional
 care. It uses synthetic and demo data throughout development and
 evaluation. If you have a medical or dermatological concern, consult a
 qualified healthcare professional.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, how to run the
+test/evaluation suites, and expectations for a change.
+
+## License
+
+[MIT](LICENSE)

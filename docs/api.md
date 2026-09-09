@@ -682,7 +682,6 @@ user accounts.
 
 ## Schema contracts defined ahead of their endpoints
 
-- `app.schemas.questionnaire` — `QuestionnaireResponseCreate/Read` (Phase 3, still unused)
 - `app.schemas.routine` — `RoutineCreate/Read`, `RoutineItemCreate/Read` (persisted-routine CRUD, still unused -- distinct from the Phase 5 analysis schemas and the Phase 8 `RoutineAnalysisRecord` in the same file)
 - `app.schemas.analysis` — `SkinAnalysisCreate/Read` (still unused; `SessionRead` in the same module is used by `/api/sessions` since Phase 8)
 
