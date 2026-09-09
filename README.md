@@ -300,6 +300,7 @@ skinvision-ai/
 - [docs/evaluation.md](docs/evaluation.md) — evaluation harness: datasets, runners, metrics, offline execution
 - [docs/phases.md](docs/phases.md) — build history, phase by phase
 - [docs/history/](docs/history/) — superseded pre-implementation phase plans, kept for reference only
+- [docs/resume-metrics.md](docs/resume-metrics.md) — every project metric with its source and how it was measured
 
 ## Limitations
 
