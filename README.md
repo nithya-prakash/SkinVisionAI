@@ -5,6 +5,12 @@ computer vision, a deterministic ingredient/routine rule engine, and a
 bounded, validated LLM explanation layer — built to demonstrate
 full-stack AI engineering, not to diagnose anything.
 
+![SkinVision AI walkthrough: visual analysis results, ingredient compatibility with an AI explanation, and the agent chat's inspectable tool-call trace](docs/assets/demo.gif)
+
+*Live walkthrough of the running app — real, unscripted output from the
+deterministic engines and the bounded agent (see [Setup](#setup) to run
+it yourself).*
+
 ## Why this project exists
 
 It demonstrates a pattern that matters beyond skincare: **combining a
