@@ -12,9 +12,31 @@ cp backend/.env.example backend/.env
 docker compose up --build
 ```
 
-API at http://localhost:8010, web at http://localhost:3010. See the
-[README's Setup section](README.md#setup) for local (non-Docker)
-backend/frontend dev instructions.
+API at http://localhost:8010, web at http://localhost:3010.
+
+**Backend, locally (outside Docker):**
+
+```bash
+cd backend
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
+cp .env.example .env
+pytest
+uvicorn app.main:app --reload
+```
+
+`pytest` requires a reachable PostgreSQL matching `DATABASE_URL` (e.g.
+`docker compose up -d db`, then `alembic upgrade head`) — tests exercise
+the real database rather than mocking the ORM.
+
+**Frontend, locally:**
+
+```bash
+cd frontend
+npm install
+cp .env.local.example .env.local
+npm run dev -- --port 3010
+```
 
 ## Running the backend tests
 
