@@ -149,7 +149,8 @@ backend/app/
 
 | Model | Purpose |
 |---|---|
-| `UserSession` | Anonymous session identity (no auth) |
+| `User` | A registered account (email, bcrypt-hashed password) -- release-hardening follow-up |
+| `UserSession` | One user's workspace -- originally an anonymous, unowned identity; now owned by exactly one `User` (`user_id`, unique) |
 | `ImageMetadata` | Uploaded image metadata; never stores raw bytes in DB |
 | `SkinAnalysis` | One analysis run: image + visual observations + structured response |
 | `Ingredient` | Reserved (unused as of Phase 4) canonical ingredient reference table -- the ingredient engine's source of truth is the versioned JSON rule files, not this table; see docs/ingredients.md |
@@ -485,6 +486,73 @@ migration, no change to the deterministic/LLM trust boundary:
 - No dependency changes, no new migrations, no change to any
   deterministic rule, CV algorithm, LLM prompt, validator, rate limit,
   or the agent's tool-calling contract.
+
+## Notes from the authentication follow-up
+
+A second, larger follow-up pass, addressing two of the disclosed
+limitations from the release-hardening pass: "no authentication --
+anonymous session ID alone grants access" and "no image retention/TTL
+job" (the latter already covered above, done first as the smaller,
+independently-scoped fix). The auth work is the single largest change
+made to this repository -- new dependencies (`bcrypt`, `pyjwt`,
+`email-validator`), a new migration, and a new trust boundary at the
+API layer -- so it's documented in detail here rather than folded into
+the bullet list above.
+
+- **Design**: `UserSession` stays the anchor every other table already
+  keyed off (`SkinAnalysis`, `Product`, `ChatSession`, `ImageMetadata`,
+  `Routine`, `RoutineAnalysisRecord`, `ComparisonRecord`) -- zero schema
+  change to any of them. It gained one thing: a required, unique
+  `user_id` FK to a new `User` table. One user has exactly one session,
+  created at registration.
+- **Auth mechanism**: email/password, bcrypt hashing
+  (`app/services/auth_service.py`), a JWT in an httpOnly, `SameSite=Lax`
+  cookie -- not a bearer token a frontend script could read or store.
+  Chosen specifically because `app/main.py`'s CORS middleware already
+  had `allow_credentials=True` set (previously unused) and because a
+  cookie avoids the XSS-token-theft class of bug a `localStorage` token
+  would invite. 7-day expiry, no refresh-token flow, no email
+  verification, no password reset -- the last two would need
+  email-sending infrastructure, deliberately out of scope.
+- **The actual fix**: every session-scoped route now requires
+  `Depends(get_current_user)` and resolves its session via
+  `session_service.get_or_create_session_for_user`, which raises
+  `SessionOwnershipError` (-> `403`) if a client-supplied `session_id`/
+  `chat_session_id`/etc. names a real resource that belongs to a
+  different user. Proven, not just asserted:
+  `tests/test_auth_api.py` registers two independent users and shows
+  the second is rejected from the first's session, chat continuation,
+  and history listing, holding the exact UUID throughout.
+- **One new migration** (`9429c5e5b5cf`, not editing history): creates
+  `users`, adds `user_sessions.user_id` as `NOT NULL` with no backfill
+  default -- correct for every environment this project actually runs
+  in (local Docker, wiped with `down -v`), documented as an explicit
+  assumption in the migration's own docstring.
+- **Evaluation harness untouched**: all 104 cases call production
+  functions directly, never through HTTP, so no auth layer sits in
+  front of them -- 104/104 was the baseline before this pass and stayed
+  the baseline after.
+- **Test suite impact**: every existing test that exercised a
+  session-scoped endpoint switched from the plain `client` fixture to a
+  new `authenticated_client` fixture (registers + logs in a throwaway
+  user once, reuses the httpOnly cookie httpx's `AsyncClient` already
+  keeps automatically) -- a mechanical, repeated change across ~16
+  files, not a redesign of any individual test. 13 new tests were added
+  specifically for auth and cross-user ownership. Net: 756 -> 773
+  backend tests.
+- **Frontend**: `/login` and `/signup` pages, `NavBar` gains signed-in/
+  signed-out state, a new `AuthGate` component blocks the five
+  session-scoped pages (plus `/results/[id]`) with a "sign in to
+  continue" prompt instead of a broken/confusing 401. `lib/api.ts`'s
+  fetch calls all go through one `apiFetch` wrapper that adds
+  `credentials: "include"`, so the cookie rides along automatically --
+  no token management in frontend code at all.
+- Verified against a genuinely fresh rebuild (`docker compose down -v`
+  + `build --no-cache` + `up`, from an empty database): all 773 backend
+  tests, 104/104 evaluation, clean `alembic check`, clean frontend
+  `tsc`/`eslint`/`build`, and a live browser pass (sign up -> use a
+  gated page -> log out -> confirm blocked -> log back in -> confirm
+  history persisted).
 
 ## Risks and assumptions carried from Phase 1
 

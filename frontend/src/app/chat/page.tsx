@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AgentStatusBadge } from "@/components/StatusBadge";
+import { AuthGate } from "@/components/AuthGate";
 import { Disclaimer, DISCLAIMER } from "@/components/Disclaimer";
 import {
   AgentStatus,
@@ -108,6 +109,7 @@ export default function ChatPage() {
   }
 
   return (
+    <AuthGate>
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-6 py-16">
       <h1 className="text-2xl font-semibold tracking-tight">Copilot Chat</h1>
       <p className="text-neutral-600 dark:text-neutral-300">
@@ -230,5 +232,6 @@ export default function ChatPage() {
 
       <Disclaimer className="mt-auto" text={DISCLAIMER} />
     </main>
+    </AuthGate>
   );
 }

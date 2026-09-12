@@ -1,11 +1,13 @@
 """Minimal in-memory per-client rate limiting (Phase 12 follow-up).
 
-This app has no authentication anywhere (see docs/persistence.md's
-Security section) and two endpoints carry a real per-request cost that
-an anonymous client could otherwise hammer without limit: uploading an
-image (CPU: the quality gate + vision pipeline) and the LLM-backed agent
-chat (real provider token cost). This module exists to bound that, not
-to be a general-purpose API gateway.
+Two endpoints carry a real per-request cost that a client could
+otherwise hammer without limit: uploading an image (CPU: the quality
+gate + vision pipeline) and the LLM-backed agent chat (real provider
+token cost) -- rate-limited independently of authentication, as
+defense-in-depth. A third, added alongside authentication itself
+(release-hardening follow-up): login/register, to bound brute-force
+password-guessing attempts. This module exists to bound those, not to
+be a general-purpose API gateway.
 
 Hand-rolled rather than adding a dependency (``slowapi``/``limits``) or
 Redis: consistent with this project's existing preference for small,
@@ -93,6 +95,7 @@ def _client_key(request: Request) -> str:
 # each against its own endpoint's configured limit.
 _upload_limiter = _FixedWindowLimiter()
 _agent_chat_limiter = _FixedWindowLimiter()
+_auth_limiter = _FixedWindowLimiter()
 
 
 def rate_limit_upload(request: Request, settings: Settings = Depends(get_settings)) -> None:
@@ -110,4 +113,13 @@ def rate_limit_agent_chat(request: Request, settings: Settings = Depends(get_set
         _client_key(request),
         settings.rate_limit_agent_chat_max_requests,
         settings.rate_limit_agent_chat_window_seconds,
+    )
+
+
+def rate_limit_auth(request: Request, settings: Settings = Depends(get_settings)) -> None:
+    """FastAPI dependency: ``Depends(rate_limit_auth)`` on login/register."""
+    _auth_limiter.check(
+        _client_key(request),
+        settings.rate_limit_auth_max_requests,
+        settings.rate_limit_auth_window_seconds,
     )

@@ -29,8 +29,10 @@ from app.models.chat import AgentTrace, ChatMessage, ChatSession
 from app.models.comparison import ComparisonRecord
 from app.models.product import Product
 from app.models.routine_analysis import RoutineAnalysisRecord
+from app.models.session import UserSession
+from app.models.user import User
 from app.schemas.analysis import AnalysisStatus
-from app.services.session_service import get_or_create_session
+from app.services.session_service import SessionOwnershipError, get_or_create_session_for_user
 
 logger = logging.getLogger(__name__)
 
@@ -84,16 +86,20 @@ async def _resolve_link(db: AsyncSession, link: ChatLink) -> dict[str, object]:
 
 
 async def _get_or_create_chat_session(
-    db: AsyncSession, session_id, chat_session_id, link: ChatLink | None
+    db: AsyncSession, current_user: User, session_id, chat_session_id, link: ChatLink | None
 ) -> ChatSession:
-    """Reuse an existing chat session by id if one was given and exists;
-    otherwise create a new one (creating a ``UserSession`` too, if needed,
-    only in that case). Possessing a valid ``chat_session_id`` is
-    sufficient to continue it -- this app has no authentication anywhere
-    else either (every other resource, e.g. a product or analysis id, is
-    equally addressable by anyone who has it), so requiring the
-    *original* anonymous ``session_id`` to also match here would be an
-    inconsistent, and not actually meaningful, extra check.
+    """Reuse an existing chat session by id if one was given, exists, and
+    belongs to the authenticated user; otherwise create a new one under
+    that user's own ``UserSession``.
+
+    Release-hardening follow-up: possessing a valid ``chat_session_id``
+    used to be sufficient to continue it (this app had no authentication
+    anywhere -- every resource was equally addressable by anyone who had
+    its id). Now that a ``UserSession`` is owned, a ``chat_session_id``
+    naming someone else's chat is a hard ``SessionOwnershipError`` (the
+    API layer turns that into a 403), never a silent fallback to a new
+    chat -- that would look like data loss to the caller instead of the
+    access-control rejection it actually is.
 
     ``link`` (Phase 8) is applied only when a *new* session is created --
     continuing an existing one keeps whatever linkage (if any) it already
@@ -102,9 +108,16 @@ async def _get_or_create_chat_session(
     if chat_session_id is not None:
         existing = await db.get(ChatSession, chat_session_id)
         if existing is not None:
+            owning_session = await db.get(UserSession, existing.session_id)
+            if owning_session is None or owning_session.user_id != current_user.id:
+                raise SessionOwnershipError(
+                    f"chat session {chat_session_id} does not belong to the authenticated user"
+                )
             return existing
 
-    user_session = await get_or_create_session(db, str(session_id) if session_id else None)
+    user_session = await get_or_create_session_for_user(
+        db, current_user, str(session_id) if session_id else None
+    )
     link_column = await _resolve_link(db, link) if link is not None else {}
     chat_session = ChatSession(session_id=user_session.id, **link_column)
     db.add(chat_session)
@@ -193,9 +206,10 @@ async def run_agent_chat(
     provider: LLMProvider,
     registry: ToolRegistry,
     settings: Settings,
+    current_user: User,
 ) -> AgentResponse:
     chat_session = await _get_or_create_chat_session(
-        db, payload.session_id, payload.chat_session_id, payload.link
+        db, current_user, payload.session_id, payload.chat_session_id, payload.link
     )
     prior_turns = await _load_prior_turns(db, chat_session.id)
     seed_trace = await _build_seed_trace(db, chat_session, settings)

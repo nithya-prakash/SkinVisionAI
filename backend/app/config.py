@@ -71,6 +71,13 @@ class Settings(BaseSettings):
     # "temporary" persists the file to upload_directory for downstream (Phase 3)
     # processing; "none" analyzes fully in-memory and never writes to disk.
     image_retention_mode: str = Field(default="temporary")
+    # How long a "temporary"-mode file may sit on disk before the cleanup
+    # job deletes it (the ImageMetadata row and its analysis history are
+    # kept; only storage_path is cleared). See app/core/image_cleanup.py.
+    image_retention_ttl_hours: float = Field(default=24.0)
+    # How often the background cleanup loop (started in app.main's
+    # lifespan) sweeps for expired images. Independent of the TTL above.
+    image_cleanup_interval_hours: float = Field(default=1.0)
 
     # --- Image quality gate thresholds (Phase 2) ---
     # Centralized here (not scattered in code) so every threshold is
@@ -149,13 +156,28 @@ class Settings(BaseSettings):
     vision_spots_pronounced_min: float = Field(default=0.7)
 
     # --- Rate limiting (Phase 12 follow-up) ---
-    # Per-client-IP fixed-window limits on the two endpoints with a real
-    # per-request cost (LLM tokens, CV pipeline CPU) in an app with no
-    # authentication to otherwise bound abuse. See app/core/rate_limit.py.
+    # Per-client-IP fixed-window limits on endpoints with a real per-request
+    # cost (LLM tokens, CV pipeline CPU, password-hashing/brute-force risk),
+    # independent of and in addition to authentication. See
+    # app/core/rate_limit.py.
     rate_limit_upload_max_requests: int = Field(default=10)
     rate_limit_upload_window_seconds: float = Field(default=60.0)
     rate_limit_agent_chat_max_requests: int = Field(default=20)
     rate_limit_agent_chat_window_seconds: float = Field(default=60.0)
+    rate_limit_auth_max_requests: int = Field(default=10)
+    rate_limit_auth_window_seconds: float = Field(default=60.0)
+
+    # --- Authentication (release-hardening follow-up) ---
+    # A UserSession is now owned by a User (app/models/user.py) rather
+    # than accessible to anyone who holds its UUID -- see
+    # app/services/auth_service.py and docs/persistence.md's Security
+    # section. jwt_secret_key ships with a local-dev-only default (see
+    # .env.example's own warning) -- never reuse it for a real deployment.
+    jwt_secret_key: str = Field(default="dev-only-insecure-secret-change-me")
+    jwt_algorithm: str = Field(default="HS256")
+    jwt_expiry_days: int = Field(default=7)
+    # Cookie name for the JWT; httpOnly, so frontend JS never reads it.
+    auth_cookie_name: str = Field(default="skinvision_auth")
 
     # --- Logging ---
     log_level: str = Field(default="INFO")

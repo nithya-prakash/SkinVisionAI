@@ -28,8 +28,8 @@ def _jpeg_file(width: int = 800, height: int = 800, name: str = "photo.jpg"):
 
 
 @pytest.mark.asyncio
-async def test_successful_upload_returns_structured_response(client: AsyncClient) -> None:
-    response = await client.post(UPLOAD_URL, files=_jpeg_file())
+async def test_successful_upload_returns_structured_response(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(UPLOAD_URL, files=_jpeg_file())
 
     assert response.status_code == 201
     body = response.json()
@@ -46,9 +46,9 @@ async def test_successful_upload_returns_structured_response(client: AsyncClient
 
 
 @pytest.mark.asyncio
-async def test_successful_png_upload(client: AsyncClient) -> None:
+async def test_successful_png_upload(authenticated_client: AsyncClient) -> None:
     raw = to_bytes(make_acceptable_image(800, 800), "PNG")
-    response = await client.post(
+    response = await authenticated_client.post(
         UPLOAD_URL, files={"file": ("photo.png", raw, "image/png")}
     )
     assert response.status_code == 201
@@ -57,10 +57,10 @@ async def test_successful_png_upload(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_low_quality_image_still_uploads_successfully_but_marked_rejected(
-    client: AsyncClient,
+    authenticated_client: AsyncClient,
 ) -> None:
     raw = to_bytes(make_dark_image(800, 800), "JPEG")
-    response = await client.post(
+    response = await authenticated_client.post(
         UPLOAD_URL, files={"file": ("dark.jpg", raw, "image/jpeg")}
     )
 
@@ -74,9 +74,9 @@ async def test_low_quality_image_still_uploads_successfully_but_marked_rejected(
 
 
 @pytest.mark.asyncio
-async def test_tiny_image_rejected_by_quality_gate(client: AsyncClient) -> None:
+async def test_tiny_image_rejected_by_quality_gate(authenticated_client: AsyncClient) -> None:
     raw = to_bytes(make_tiny_image(50, 50), "JPEG")
-    response = await client.post(
+    response = await authenticated_client.post(
         UPLOAD_URL, files={"file": ("tiny.jpg", raw, "image/jpeg")}
     )
     assert response.status_code == 201
@@ -86,9 +86,9 @@ async def test_tiny_image_rejected_by_quality_gate(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_unsupported_format_is_rejected_with_415(client: AsyncClient) -> None:
+async def test_unsupported_format_is_rejected_with_415(authenticated_client: AsyncClient) -> None:
     raw = to_bytes(make_acceptable_image(400, 400), "BMP")
-    response = await client.post(
+    response = await authenticated_client.post(
         UPLOAD_URL, files={"file": ("photo.bmp", raw, "image/bmp")}
     )
     assert response.status_code == 415
@@ -97,9 +97,9 @@ async def test_unsupported_format_is_rejected_with_415(client: AsyncClient) -> N
 
 @pytest.mark.asyncio
 async def test_fake_image_with_image_mimetype_is_rejected_with_400(
-    client: AsyncClient,
+    authenticated_client: AsyncClient,
 ) -> None:
-    response = await client.post(
+    response = await authenticated_client.post(
         UPLOAD_URL,
         files={"file": ("photo.jpg", not_an_image_bytes(), "image/jpeg")},
     )
@@ -108,8 +108,8 @@ async def test_fake_image_with_image_mimetype_is_rejected_with_400(
 
 
 @pytest.mark.asyncio
-async def test_corrupted_image_is_rejected_with_400(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_corrupted_image_is_rejected_with_400(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         UPLOAD_URL,
         files={"file": ("photo.jpg", corrupted_jpeg_bytes(), "image/jpeg")},
     )
@@ -118,13 +118,13 @@ async def test_corrupted_image_is_rejected_with_400(client: AsyncClient) -> None
 
 
 @pytest.mark.asyncio
-async def test_missing_file_returns_422(client: AsyncClient) -> None:
-    response = await client.post(UPLOAD_URL)
+async def test_missing_file_returns_422(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(UPLOAD_URL)
     assert response.status_code == 422
 
 
 @pytest.mark.asyncio
-async def test_oversized_upload_is_rejected_with_413(client: AsyncClient) -> None:
+async def test_oversized_upload_is_rejected_with_413(authenticated_client: AsyncClient) -> None:
     def tiny_max_settings() -> Settings:
         return Settings(image_max_size_mb=1)
 
@@ -132,7 +132,7 @@ async def test_oversized_upload_is_rejected_with_413(client: AsyncClient) -> Non
     try:
         raw = to_bytes(make_acceptable_image(1600, 1600), "PNG")
         assert len(raw) > 1 * 1024 * 1024
-        response = await client.post(
+        response = await authenticated_client.post(
             UPLOAD_URL, files={"file": ("big.png", raw, "image/png")}
         )
     finally:
@@ -144,10 +144,10 @@ async def test_oversized_upload_is_rejected_with_413(client: AsyncClient) -> Non
 
 @pytest.mark.asyncio
 async def test_path_traversal_filename_is_sanitized_in_response(
-    client: AsyncClient,
+    authenticated_client: AsyncClient,
 ) -> None:
     raw = to_bytes(make_acceptable_image(800, 800), "JPEG")
-    response = await client.post(
+    response = await authenticated_client.post(
         UPLOAD_URL,
         files={"file": ("../../etc/passwd.jpg", raw, "image/jpeg")},
     )
@@ -160,14 +160,14 @@ async def test_path_traversal_filename_is_sanitized_in_response(
 
 @pytest.mark.asyncio
 async def test_retention_mode_none_never_persists_a_storage_path(
-    client: AsyncClient,
+    authenticated_client: AsyncClient,
 ) -> None:
     def none_retention_settings() -> Settings:
         return Settings(image_retention_mode="none")
 
     app.dependency_overrides[get_settings] = none_retention_settings
     try:
-        response = await client.post(UPLOAD_URL, files=_jpeg_file())
+        response = await authenticated_client.post(UPLOAD_URL, files=_jpeg_file())
     finally:
         app.dependency_overrides.clear()
 
@@ -178,8 +178,8 @@ async def test_retention_mode_none_never_persists_a_storage_path(
 
 
 @pytest.mark.asyncio
-async def test_response_never_exposes_a_filesystem_path(client: AsyncClient) -> None:
-    response = await client.post(UPLOAD_URL, files=_jpeg_file())
+async def test_response_never_exposes_a_filesystem_path(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(UPLOAD_URL, files=_jpeg_file())
     body_text = response.text
     assert "/app/data" not in body_text
     assert "/data/uploads" not in body_text
@@ -189,7 +189,7 @@ async def test_response_never_exposes_a_filesystem_path(client: AsyncClient) -> 
 
 
 @pytest.mark.asyncio
-async def test_upload_is_rate_limited_past_the_configured_max(client: AsyncClient) -> None:
+async def test_upload_is_rate_limited_past_the_configured_max(authenticated_client: AsyncClient) -> None:
     """Proves the dependency is actually wired to the real route -- a
     tiny configured limit is exceeded with real requests through the
     real ASGI app, not just the limiter class in isolation (see
@@ -203,9 +203,9 @@ async def test_upload_is_rate_limited_past_the_configured_max(client: AsyncClien
     app.dependency_overrides[get_settings] = tiny_rate_limit_settings
     _upload_limiter._windows.clear()
     try:
-        first = await client.post(UPLOAD_URL, files=_jpeg_file())
-        second = await client.post(UPLOAD_URL, files=_jpeg_file())
-        third = await client.post(UPLOAD_URL, files=_jpeg_file())
+        first = await authenticated_client.post(UPLOAD_URL, files=_jpeg_file())
+        second = await authenticated_client.post(UPLOAD_URL, files=_jpeg_file())
+        third = await authenticated_client.post(UPLOAD_URL, files=_jpeg_file())
     finally:
         app.dependency_overrides.clear()
         _upload_limiter._windows.clear()

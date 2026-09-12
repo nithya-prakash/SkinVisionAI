@@ -18,6 +18,7 @@ from app.config import Settings
 from app.database import AsyncSessionLocal
 from app.models.image import ImageMetadata
 from app.services.image_service import ingest_image
+from tests.helpers.auth import make_user_and_session
 from tests.helpers.images import make_acceptable_image, to_bytes
 
 
@@ -114,9 +115,7 @@ async def test_ingest_image_reuses_an_existing_valid_session(tmp_path: Path) -> 
     raw = to_bytes(make_acceptable_image(800, 800), "JPEG")
 
     async with AsyncSessionLocal() as db:
-        existing = UserSession()
-        db.add(existing)
-        await db.flush()
+        _, existing = await make_user_and_session(db)
         await db.commit()
         existing_id = existing.id
 

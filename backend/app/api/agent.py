@@ -20,7 +20,10 @@ from app.core.rate_limit import rate_limit_agent_chat
 from app.database import get_db
 from app.llm.base import LLMProvider
 from app.llm.provider import get_llm_provider
+from app.models.user import User
 from app.services.agent_service import InvalidChatLinkError, run_agent_chat
+from app.services.auth_service import get_current_user
+from app.services.session_service import SessionOwnershipError
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
 
@@ -51,6 +54,7 @@ async def agent_chat_endpoint(
     provider: LLMProvider = Depends(_provider),
     registry: ToolRegistry = Depends(_registry),
     settings: Settings = Depends(get_settings),
+    current_user: User = Depends(get_current_user),
 ) -> AgentResponse:
     """Run one agent turn: resolve/persist the chat session and user
     message, run the bounded tool-calling loop, persist the assistant
@@ -58,12 +62,23 @@ async def agent_chat_endpoint(
 
     ``payload.link`` (Phase 8), when given, must name an id the backend
     already computed -- an unknown id is a controlled 400, never a
-    silently-ignored or fabricated linkage.
+    silently-ignored or fabricated linkage. ``payload.session_id``/
+    ``chat_session_id`` naming a session that exists but belongs to a
+    different user is a 403 (release-hardening follow-up).
     """
     try:
         return await run_agent_chat(
-            db=db, payload=payload, provider=provider, registry=registry, settings=settings
+            db=db,
+            payload=payload,
+            provider=provider,
+            registry=registry,
+            settings=settings,
+            current_user=current_user,
         )
+    except SessionOwnershipError as exc:
+        raise HTTPException(
+            status_code=403, detail={"code": "session_forbidden", "message": str(exc)}
+        ) from exc
     except InvalidChatLinkError as exc:
         raise HTTPException(
             status_code=400,

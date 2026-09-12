@@ -11,6 +11,16 @@
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8010";
 
+/**
+ * Every call to the API goes through this wrapper so the httpOnly auth
+ * cookie (release-hardening follow-up -- see lib/auth.ts) rides along
+ * automatically. Never attaches a token manually; there is nothing for
+ * frontend JS to read or store -- the cookie is not visible to it.
+ */
+async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
+  return fetch(input, { ...init, credentials: "include" });
+}
+
 export interface HealthResponse {
   status: string;
   app_name: string;
@@ -18,7 +28,7 @@ export interface HealthResponse {
 }
 
 export async function getHealth(): Promise<HealthResponse> {
-  const res = await fetch(`${API_BASE_URL}/health`, { cache: "no-store" });
+  const res = await apiFetch(`${API_BASE_URL}/health`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Health check failed: ${res.status}`);
   }
@@ -97,7 +107,7 @@ export async function uploadImage(
     formData.append("session_id", sessionId);
   }
 
-  const res = await fetch(`${API_BASE_URL}/api/analysis/upload`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/analysis/upload`, {
     method: "POST",
     body: formData,
   });
@@ -166,7 +176,7 @@ export class VisualAnalysisRequestError extends Error {
 export async function runVisualAnalysis(
   analysisId: string,
 ): Promise<VisualAnalysisResult> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE_URL}/api/analysis/${analysisId}/visual-analysis`,
     { method: "POST" },
   );
@@ -274,7 +284,7 @@ export async function analyzeProduct(input: {
   rawIngredientText: string;
   sessionId?: string;
 }): Promise<ProductAnalyzeResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/products/analyze`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/products/analyze`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -333,7 +343,7 @@ export async function compareProducts(
   productA: ProductCompareItem,
   productB: ProductCompareItem,
 ): Promise<ProductComparisonResult> {
-  const res = await fetch(`${API_BASE_URL}/api/products/compare`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/products/compare`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -430,7 +440,7 @@ export interface RoutineAnalysisResult {
 export async function analyzeRoutine(
   products: RoutineProductInput[],
 ): Promise<RoutineAnalysisResult> {
-  const res = await fetch(`${API_BASE_URL}/api/routine/analyze`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/routine/analyze`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -545,7 +555,7 @@ export async function explainProduct(input: {
   rawIngredientText: string;
   sessionId?: string;
 }): Promise<ProductExplanationResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/explanations/product`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/explanations/product`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -570,7 +580,7 @@ export async function explainComparison(
   productB: ProductCompareItem,
   options?: { sessionId?: string; persist?: boolean },
 ): Promise<ComparisonExplanationResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/explanations/compare`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/explanations/compare`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -599,7 +609,7 @@ export async function explainRoutine(
   products: RoutineProductInput[],
   options?: { sessionId?: string; persist?: boolean },
 ): Promise<RoutineExplanationResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/explanations/routine`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/explanations/routine`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -666,7 +676,7 @@ export async function sendAgentChatMessage(input: {
   sessionId?: string;
   context?: Record<string, unknown>;
 }): Promise<AgentResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/agent/chat`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/agent/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -696,7 +706,7 @@ export interface SessionRead {
 }
 
 export async function createSession(): Promise<SessionRead> {
-  const res = await fetch(`${API_BASE_URL}/api/sessions`, { method: "POST" });
+  const res = await apiFetch(`${API_BASE_URL}/api/sessions`, { method: "POST" });
   if (!res.ok) {
     throw await parseErrorBody(res, `Session creation failed (${res.status}).`);
   }
@@ -724,7 +734,7 @@ export interface AnalysisDetailResponse {
 export class AnalysisNotFoundError extends Error {}
 
 export async function getAnalysis(analysisId: string): Promise<AnalysisDetailResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/analysis/${analysisId}`, { cache: "no-store" });
+  const res = await apiFetch(`${API_BASE_URL}/api/analysis/${analysisId}`, { cache: "no-store" });
   if (res.status === 404) {
     throw new AnalysisNotFoundError("No analysis exists with that id.");
   }
@@ -746,7 +756,7 @@ export interface ChatSessionRead {
 }
 
 export async function getChatSession(chatSessionId: string): Promise<ChatSessionRead> {
-  const res = await fetch(`${API_BASE_URL}/api/chat/sessions/${chatSessionId}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/chat/sessions/${chatSessionId}`, {
     cache: "no-store",
   });
   if (!res.ok) {
@@ -770,7 +780,7 @@ export interface ChatMessagesResponse {
 }
 
 export async function getChatMessages(chatSessionId: string): Promise<ChatMessagesResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/chat/sessions/${chatSessionId}/messages`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/chat/sessions/${chatSessionId}/messages`, {
     cache: "no-store",
   });
   if (!res.ok) {
@@ -796,7 +806,7 @@ export interface SessionAnalysesResponse {
 }
 
 export async function listSessionAnalyses(sessionId: string): Promise<SessionAnalysesResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/analyses`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/sessions/${sessionId}/analyses`, {
     cache: "no-store",
   });
   if (!res.ok) {
@@ -818,7 +828,7 @@ export interface SessionChatsResponse {
 }
 
 export async function listSessionChats(sessionId: string): Promise<SessionChatsResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/chats`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/sessions/${sessionId}/chats`, {
     cache: "no-store",
   });
   if (!res.ok) {
@@ -842,7 +852,7 @@ export interface SessionProductsResponse {
 }
 
 export async function listSessionProducts(sessionId: string): Promise<SessionProductsResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/products`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/sessions/${sessionId}/products`, {
     cache: "no-store",
   });
   if (!res.ok) {
@@ -866,7 +876,7 @@ export interface SessionRoutineAnalysesResponse {
 export async function listSessionRoutineAnalyses(
   sessionId: string,
 ): Promise<SessionRoutineAnalysesResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/routine-analyses`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/sessions/${sessionId}/routine-analyses`, {
     cache: "no-store",
   });
   if (!res.ok) {
@@ -891,7 +901,7 @@ export interface SessionComparisonsResponse {
 export async function listSessionComparisons(
   sessionId: string,
 ): Promise<SessionComparisonsResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/comparisons`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/sessions/${sessionId}/comparisons`, {
     cache: "no-store",
   });
   if (!res.ok) {

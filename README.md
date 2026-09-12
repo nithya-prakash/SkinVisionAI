@@ -24,7 +24,7 @@ explains and orchestrates but never decides.**
   selects deterministic tools and is validated after the fact against
   exactly what those tools returned.
 - A reproducible, offline evaluation harness (104 cases) and a
-  756-test backend suite guard the whole system, not just the UI.
+  773-test backend suite guard the whole system, not just the UI.
 
 It is **not** medically accurate, clinically validated, or
 production-ready — see [Limitations](#limitations) and
@@ -60,7 +60,7 @@ real user photos are stored in this repository.
 | **Product comparison** | Shared vs. unique ingredients and interactions between two products — deliberately no "better product" score |
 | **AI explanations** | Plain-language narration of a deterministic result, validated after generation so it can't assert anything the result didn't establish |
 | **Agentic chat** | A bounded agent picks from 5 deterministic tools, reads their real output, and answers only from that — with an inspectable trace |
-| **Sessions & history** | Anonymous, no-login sessions; a History page surfaces past analyses, chats, routines, and comparisons |
+| **Accounts & history** | Email/password sign-in (JWT in an httpOnly cookie); a History page surfaces past analyses, chats, routines, and comparisons, owned by and private to that account |
 | **Safety validation** | Rejects unsupported claims, fabricated citations/numbers, and diagnostic-sounding language before it reaches a user |
 | **Evaluation harness** | 104 reproducible, offline cases across all 7 subsystems — a regression gate, not a one-off check |
 
@@ -125,8 +125,15 @@ Every item above is actually present in `backend/requirements.txt` or `frontend/
 - No real user images are stored in the repo; no LLM/database
   credentials reach the frontend; a global exception handler sanitizes
   every error response.
-- Per-client-IP rate limiting on the two cost-bearing endpoints (image
-  upload, agent chat) in an app with no authentication.
+- A background job automatically deletes an uploaded image's on-disk
+  bytes after a configurable TTL (24h default) — analysis history is
+  kept, only the raw file is reclaimed.
+- Real accounts (email/password, JWT in an httpOnly cookie): a session
+  is owned by its user, not reachable by anyone who holds its UUID — a
+  second user is provably rejected (403) from a session that isn't
+  theirs, even knowing its exact id.
+- Per-client-IP rate limiting on upload, agent chat, and login/register
+  (brute-force protection), independent of authentication.
 
 Full detail, including the upload/retention and rate-limiting specifics: [docs/safety.md](docs/safety.md).
 
@@ -161,7 +168,7 @@ Fully offline: every LLM/agent case uses a deterministic `FakeLLMProvider`.
 
 ## Testing
 
-756 backend tests pass (real PostgreSQL, no ORM mocking, run inside
+773 backend tests pass (real PostgreSQL, no ORM mocking, run inside
 Docker) plus the 104 evaluation cases above — both offline-capable.
 Frontend: `tsc --noEmit`, `eslint`, and `next build` all pass with zero
 warnings. Full commands: [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -190,7 +197,7 @@ dev and every other dev command, see [CONTRIBUTING.md](CONTRIBUTING.md).
 skinvision-ai/
 ├── backend/app/       FastAPI app: api/, services/, agent/, llm/, vision/, ingredients/, routine/, ...
 ├── backend/rules/     versioned, source-cited ingredient/routine rule JSON
-├── backend/tests/     756 tests + tests/evaluation/
+├── backend/tests/     773 tests + tests/evaluation/
 ├── backend/evaluation/  offline evaluation harness
 ├── frontend/src/app/  Next.js pages (/, /analyze, /results/[id], /compare, /routine, /chat, /history)
 ├── docs/              architecture, vision, ingredients, routine, llm, agent, safety, evaluation, ...
@@ -220,15 +227,14 @@ This is a portfolio project, not a clinical tool:
 - **The ingredient rule set is intentionally small** — 28 canonical ingredients,
   6 source-cited rules. Anything else is reported as unrecognized, never guessed.
 - **Safety validators are heuristic**, biased toward over-rejection.
-- **No authentication.** Sessions are anonymous UUIDs; possessing an
-  id grants access — a disclosed, deliberate scope boundary.
-- **No automatic image deletion/TTL job** yet.
+- **No email verification or password reset** — would need email-sending
+  infrastructure, deliberately out of scope.
 
 Full detail: [docs/safety.md](docs/safety.md), [docs/vision.md](docs/vision.md).
 
 ## Future work
 
-Deliberately not built, to keep scope honest and finished: authentication/accounts, a genuinely sourced clinical dataset, broader ingredient coverage, learned CV models as an optional supplement (never replacing the deterministic baseline), automated image retention, and cloud/CI deployment. Nothing above is implemented here or promised for a timeline.
+Deliberately not built, to keep scope honest and finished: a genuinely sourced clinical dataset, broader ingredient coverage, learned CV models as an optional supplement (never replacing the deterministic baseline), and cloud/CI deployment. Nothing above is implemented here or promised for a timeline.
 
 ## Disclaimer
 

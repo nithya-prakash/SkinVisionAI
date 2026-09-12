@@ -281,8 +281,9 @@ In both modes: raw image bytes are never logged, never stored in the
 database (only metadata and JSON results are), and never included in
 error responses.
 
-**Known limitation:** no background job expires `temporary`-mode files
-after some TTL — a future enhancement, not part of this project.
+`temporary`-mode files are expired automatically by a background job
+after `IMAGE_RETENTION_TTL_HOURS` (default 24h) — see
+[docs/safety.md](safety.md#upload-safety) for how the cleanup runs.
 
 ## Output contract
 

@@ -24,8 +24,8 @@ def _default_fake_provider():
 
 
 @pytest.mark.asyncio
-async def test_explain_product_endpoint(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_explain_product_endpoint(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         "/api/explanations/product",
         json={"name": "Retinol Serum", "raw_ingredient_text": "Retinol, Glycolic Acid"},
     )
@@ -38,8 +38,8 @@ async def test_explain_product_endpoint(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_explain_compare_endpoint(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_explain_compare_endpoint(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         "/api/explanations/compare",
         json={
             "product_a": {"name": "A", "raw_ingredient_text": "Retinol, Niacinamide"},
@@ -53,8 +53,8 @@ async def test_explain_compare_endpoint(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_explain_routine_endpoint(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_explain_routine_endpoint(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         "/api/explanations/routine",
         json={
             "products": [
@@ -71,11 +71,11 @@ async def test_explain_routine_endpoint(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_explain_routine_llm_unavailable_still_returns_analysis(client: AsyncClient) -> None:
+async def test_explain_routine_llm_unavailable_still_returns_analysis(authenticated_client: AsyncClient) -> None:
     app.dependency_overrides[_provider] = lambda: FakeLLMProvider(
         raise_error=LLMTimeoutError("simulated")
     )
-    response = await client.post(
+    response = await authenticated_client.post(
         "/api/explanations/routine",
         json={"products": [{"product_name": "A", "raw_ingredients": "Retinol, Glycolic Acid"}]},
     )
@@ -89,11 +89,11 @@ async def test_explain_routine_llm_unavailable_still_returns_analysis(client: As
 
 
 @pytest.mark.asyncio
-async def test_explain_routine_hallucinating_provider_rejected(client: AsyncClient) -> None:
+async def test_explain_routine_hallucinating_provider_rejected(authenticated_client: AsyncClient) -> None:
     app.dependency_overrides[_provider] = lambda: FakeLLMProvider(
         fixed_response=ExplanationLLMOutput(summary="This routine is completely safe.")
     )
-    response = await client.post(
+    response = await authenticated_client.post(
         "/api/explanations/routine",
         json={"products": [{"product_name": "A", "raw_ingredients": "Water"}]},
     )
@@ -104,11 +104,11 @@ async def test_explain_routine_hallucinating_provider_rejected(client: AsyncClie
 
 
 @pytest.mark.asyncio
-async def test_explain_endpoints_never_expose_api_keys_or_internals(client: AsyncClient) -> None:
+async def test_explain_endpoints_never_expose_api_keys_or_internals(authenticated_client: AsyncClient) -> None:
     app.dependency_overrides[_provider] = lambda: FakeLLMProvider(
         raise_error=LLMTimeoutError("sk-super-secret-leak-test")
     )
-    response = await client.post(
+    response = await authenticated_client.post(
         "/api/explanations/product",
         json={"name": "A", "raw_ingredient_text": "Water"},
     )
@@ -116,18 +116,18 @@ async def test_explain_endpoints_never_expose_api_keys_or_internals(client: Asyn
 
 
 @pytest.mark.asyncio
-async def test_explain_product_rejects_missing_ingredients(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_explain_product_rejects_missing_ingredients(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         "/api/explanations/product", json={"name": "A", "raw_ingredient_text": ""}
     )
     assert response.status_code == 422
 
 
 @pytest.mark.asyncio
-async def test_explain_routine_is_deterministic(client: AsyncClient) -> None:
+async def test_explain_routine_is_deterministic(authenticated_client: AsyncClient) -> None:
     payload = {"products": [{"product_name": "A", "raw_ingredients": "Retinol, Glycolic Acid"}]}
-    first = await client.post("/api/explanations/routine", json=payload)
-    second = await client.post("/api/explanations/routine", json=payload)
+    first = await authenticated_client.post("/api/explanations/routine", json=payload)
+    second = await authenticated_client.post("/api/explanations/routine", json=payload)
     assert first.json() == second.json()
 
 
@@ -138,9 +138,9 @@ async def test_explain_routine_is_deterministic(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_explain_routine_without_persist_returns_null_analysis_id(
-    client: AsyncClient,
+    authenticated_client: AsyncClient,
 ) -> None:
-    response = await client.post(
+    response = await authenticated_client.post(
         "/api/explanations/routine",
         json={"products": [{"product_name": "A", "raw_ingredients": "Retinol"}]},
     )
@@ -149,9 +149,9 @@ async def test_explain_routine_without_persist_returns_null_analysis_id(
 
 @pytest.mark.asyncio
 async def test_explain_routine_with_persist_true_returns_an_analysis_id(
-    client: AsyncClient,
+    authenticated_client: AsyncClient,
 ) -> None:
-    response = await client.post(
+    response = await authenticated_client.post(
         "/api/explanations/routine",
         json={"persist": True, "products": [{"product_name": "A", "raw_ingredients": "Retinol"}]},
     )
@@ -161,9 +161,9 @@ async def test_explain_routine_with_persist_true_returns_an_analysis_id(
 
 @pytest.mark.asyncio
 async def test_explain_compare_with_persist_true_returns_an_analysis_id(
-    client: AsyncClient,
+    authenticated_client: AsyncClient,
 ) -> None:
-    response = await client.post(
+    response = await authenticated_client.post(
         "/api/explanations/compare",
         json={
             "persist": True,

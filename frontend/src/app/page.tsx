@@ -67,8 +67,8 @@ export default function Home() {
       </div>
 
       <p className="text-sm text-neutral-500 dark:text-neutral-400">
-        Everything you do is tied to an anonymous, local session &mdash; no
-        account required.{" "}
+        Everything you do is tied to your account &mdash; sign up to get
+        started.{" "}
         <Link href="/history" className="underline underline-offset-2">
           View your session history
         </Link>

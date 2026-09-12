@@ -8,15 +8,18 @@ the as-built reference).
 
 ## The application session model
 
-`UserSession` (Phase 1, `app.models.session`) is the only identity
-concept in this app — a plain, anonymous UUID, no auth. Phase 8 makes it
-actually usable end-to-end:
+`UserSession` (Phase 1, `app.models.session`) is the identity concept
+everything else in this app hangs off. Phase 8 made it usable
+end-to-end as a plain, anonymous UUID; the release-hardening follow-up
+gave it an owner (`app.models.user.User`, one session per account, an
+httpOnly-cookie JWT — see `app/services/auth_service.py`) without
+changing anything below it:
 
 ```
-localStorage["skinvision_session_id"]  (frontend, lib/session.ts)
+Signed-in cookie (JWT)  ->  get_current_user  ->  User
         |
         v
-POST /api/sessions  ->  UserSession row  ->  reused via get_or_create_session
+get_or_create_session_for_user  ->  UserSession row (one per User)
         |
         +--> ImageMetadata / SkinAnalysis   (image upload)
         +--> Product                        (single-product analysis, Ph. 4)
@@ -25,7 +28,7 @@ POST /api/sessions  ->  UserSession row  ->  reused via get_or_create_session
         +--> ChatSession -> ChatMessage -> AgentTrace  (Ph. 7)
 ```
 
-A session id is a plain, non-secret UUID, not a credential — see
+A session id is still a plain UUID, not a credential itself — see
 [Security](#security).
 
 ## Database relationships
@@ -183,16 +186,27 @@ recommendation computation happens in TypeScript, ever.
 
 ## Security
 
-- A session/analysis/chat-session id is a plain UUID, not a credential —
-  consistent with every other UUID-addressable resource already in this
-  app (a product id, an analysis id). No authentication is introduced
-  this phase, per its explicit instruction; the threat model (possession
-  of an id grants access to that resource) is unchanged from Phase 1–7,
-  just applied consistently to the new read endpoints too.
+**Updated by the release-hardening follow-up — read this version, not
+the "no authentication" framing in older commits.** A `UserSession` is
+now owned by a `User` (`UserSession.user_id`, unique — one session per
+account) rather than reachable by anyone who holds its UUID. Every
+session-scoped route requires `Depends(get_current_user)` (a JWT in an
+httpOnly cookie, see `app/services/auth_service.py`); a `session_id`,
+`chat_session_id`, `analysis_id`, etc. that exists but belongs to a
+different user is a `403`, not a silent fallback and not treated as if
+it were the caller's own. The actual fix lives in
+`app/services/session_service.get_or_create_session_for_user` and
+`assert_session_owned`, exercised end-to-end by
+`tests/test_auth_api.py`'s cross-user tests (a second, independently
+registered user proven unable to read or act on the first user's
+session, chat, or analysis, even holding its exact id).
+
 - `GET /api/sessions/{id}` (and the two list endpoints) 404 for an
   unknown id rather than silently creating a new, unrelated session —
-  unlike write paths (`get_or_create_session`), a read endpoint that
-  names a specific id must never fabricate one.
+  unlike write paths (`get_or_create_session_for_user`), a read endpoint
+  that names a specific id must never fabricate one. A *known* id that
+  belongs to someone else is a distinct `403`, never conflated with 404
+  (see `tests/test_auth_api.py::test_an_unknown_session_id_still_404s_for_an_authenticated_user`).
 - `AnalysisDetailResponse` never carries `ImageMetadata.storage_path` or
   any other filesystem detail — enforced by using `ImageMetadataRead`
   (the same schema `POST /api/analysis/upload` already used) rather than
@@ -211,8 +225,9 @@ recommendation computation happens in TypeScript, ever.
 
 ## Known limitations
 
-- Session/chat/analysis ids grant access to anyone who has them — by
-  design (no auth this phase), consistent with every prior phase.
+- No email verification and no password-reset flow (would need
+  email-sending infrastructure, deliberately out of scope) — see
+  `docs/architecture.md`'s auth follow-up notes.
 - `AgentChatRequest.link` supports linking a chat only at creation time —
   continuing an existing (unlinked) chat session cannot retroactively
   attach a linkage through this endpoint.

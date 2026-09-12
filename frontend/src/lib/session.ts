@@ -1,40 +1,23 @@
 /**
- * Client-side application-session persistence (Phase 8).
+ * Client-side session helpers (Phase 8; release-hardening follow-up
+ * simplifies the session half of this file).
  *
- * A session id is a plain, non-secret UUID -- never a credential. It is
- * stored in localStorage purely so a page refresh doesn't lose
- * continuity (which analyses/chats belong together); it grants no
- * capability beyond what any other UUID-addressable resource in this
- * app already exposes (see docs/persistence.md's security section).
+ * A session is now the authenticated user's own, owned session (see
+ * lib/auth.ts) -- not a client-generated anonymous identity worth
+ * caching in localStorage. `getOrCreateAppSession()` keeps its existing
+ * signature (every page below still calls it the same way) but now
+ * simply asks the backend for "my session" each time, idempotently
+ * (`POST /api/sessions` always returns the same row for a signed-in
+ * user); the backend, not localStorage, is the source of truth for
+ * which session is yours.
  *
- * Server-side session creation/lookup is unaffected by this file --
- * every backend call that accepts an optional session_id still works
- * fine without one (it just creates a fresh anonymous session), this
- * module only makes the frontend consistently reuse the same one.
+ * Chat-session-id caching (below) is unrelated and unchanged: it's a
+ * pure refresh-continuity nicety, not an access-control mechanism --
+ * the backend checks chat-session ownership regardless of where the id
+ * came from (see docs/persistence.md's Security section).
  */
 
 import { createSession } from "./api";
-
-const STORAGE_KEY = "skinvision_session_id";
-
-/** Read the stored session id, if any. Never throws. */
-export function getStoredSessionId(): string | undefined {
-  try {
-    return localStorage.getItem(STORAGE_KEY) ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-/** Persist a session id returned by the backend. Never throws. */
-export function setStoredSessionId(sessionId: string): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, sessionId);
-  } catch {
-    // Private browsing / storage disabled -- the app still works, just
-    // without cross-refresh continuity for this viewer.
-  }
-}
 
 const CHAT_STORAGE_KEY = "skinvision_chat_session_id";
 
@@ -50,21 +33,17 @@ export function setStoredChatSessionId(chatSessionId: string): void {
   try {
     localStorage.setItem(CHAT_STORAGE_KEY, chatSessionId);
   } catch {
-    // See getStoredSessionId.
+    // Private browsing / storage disabled -- the app still works, just
+    // without cross-refresh chat continuity for this viewer.
   }
 }
 
 /**
- * The stored session id if one exists; otherwise creates one via the
- * backend and stores it. Every page that wants cross-refresh continuity
- * calls this once (e.g. in a mount effect) rather than reading
- * localStorage directly.
+ * The signed-in user's own session id. Requires authentication --
+ * callers should already have confirmed a user is signed in (see each
+ * page's auth-gate check) before calling this.
  */
 export async function getOrCreateAppSession(): Promise<string> {
-  const existing = getStoredSessionId();
-  if (existing) return existing;
-
   const session = await createSession();
-  setStoredSessionId(session.id);
   return session.id;
 }

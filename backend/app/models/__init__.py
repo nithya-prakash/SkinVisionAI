@@ -4,6 +4,7 @@ Importing this package registers every model on ``Base.metadata`` so Alembic
 autogenerate and ``Base.metadata.create_all`` (tests) see the full schema.
 """
 from app.models.base import Base, TimestampMixin, UUIDPKMixin
+from app.models.user import User
 from app.models.session import UserSession
 from app.models.image import ImageMetadata
 from app.models.analysis import SkinAnalysis
@@ -17,6 +18,7 @@ __all__ = [
     "Base",
     "TimestampMixin",
     "UUIDPKMixin",
+    "User",
     "UserSession",
     "ImageMetadata",
     "SkinAnalysis",

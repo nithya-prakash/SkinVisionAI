@@ -6,16 +6,21 @@ schema) is not implemented yet -- this router covers only
 nothing to the database. See docs/routine.md for why. Phase 8 adds an
 opt-in ``persist=True`` request field (see docs/persistence.md); the
 default (``False``) behavior is byte-identical to Phase 5.
+Release-hardening follow-up: requires authentication when persisting; a
+``session_id`` that isn't the caller's own is a 403.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.models.user import User
 from app.routine.analyzer import analyze_routine
 from app.schemas.routine import RoutineAnalysisRequest, RoutineAnalysisResult
+from app.services.auth_service import get_current_user
 from app.services.persistence_service import persist_routine_analysis
+from app.services.session_service import SessionOwnershipError, get_or_create_session_for_user
 
 router = APIRouter(prefix="/api/routine", tags=["routine"])
 
@@ -24,6 +29,7 @@ router = APIRouter(prefix="/api/routine", tags=["routine"])
 async def analyze_routine_endpoint(
     payload: RoutineAnalysisRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> RoutineAnalysisResult:
     """Analyze a set of products as a routine: normalized ingredients,
     overlapping actives, cross-product compatibility, and a suggested
@@ -35,6 +41,14 @@ async def analyze_routine_endpoint(
     """
     result = analyze_routine(payload)
     if payload.persist:
-        record = await persist_routine_analysis(db, payload, result)
+        try:
+            session = await get_or_create_session_for_user(
+                db, current_user, str(payload.session_id) if payload.session_id else None
+            )
+        except SessionOwnershipError as exc:
+            raise HTTPException(
+                status_code=403, detail={"code": "session_forbidden", "message": str(exc)}
+            ) from exc
+        record = await persist_routine_analysis(db, session, payload, result)
         result = result.model_copy(update={"id": record.id})
     return result

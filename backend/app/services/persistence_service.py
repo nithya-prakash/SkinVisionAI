@@ -6,6 +6,13 @@ otherwise these endpoints remain exactly as stateless as Phase 5 designed
 them. Mirrors ``Product.analysis_result``'s existing request-plus-result
 JSON pattern (``app.services.ingredient_service``) rather than
 normalizing either result's internal structure into new columns.
+
+Both functions take an already-resolved, already-ownership-checked
+``UserSession`` (release-hardening follow-up) rather than deriving one
+from ``request.session_id`` internally -- session resolution/ownership
+is the API layer's job (``app.services.auth_service``/
+``session_service.get_or_create_session_for_user``), done once per
+request, not re-derived per service call.
 """
 from __future__ import annotations
 
@@ -13,17 +20,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.comparison import ComparisonRecord
 from app.models.routine_analysis import RoutineAnalysisRecord
+from app.models.session import UserSession
 from app.schemas.product import ProductCompareRequest, ProductComparisonResult
 from app.schemas.routine import RoutineAnalysisRequest, RoutineAnalysisResult
-from app.services.session_service import get_or_create_session
 
 
 async def persist_routine_analysis(
-    db: AsyncSession, request: RoutineAnalysisRequest, result: RoutineAnalysisResult
+    db: AsyncSession, session: UserSession, request: RoutineAnalysisRequest, result: RoutineAnalysisResult
 ) -> RoutineAnalysisRecord:
-    session = await get_or_create_session(
-        db, str(request.session_id) if request.session_id else None
-    )
     record = RoutineAnalysisRecord(
         session_id=session.id,
         request=request.model_dump(mode="json", exclude={"persist"}),
@@ -36,11 +40,8 @@ async def persist_routine_analysis(
 
 
 async def persist_comparison(
-    db: AsyncSession, request: ProductCompareRequest, result: ProductComparisonResult
+    db: AsyncSession, session: UserSession, request: ProductCompareRequest, result: ProductComparisonResult
 ) -> ComparisonRecord:
-    session = await get_or_create_session(
-        db, str(request.session_id) if request.session_id else None
-    )
     record = ComparisonRecord(
         session_id=session.id,
         request=request.model_dump(mode="json", exclude={"persist"}),

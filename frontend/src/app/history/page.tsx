@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { AuthGate } from "@/components/AuthGate";
 import { Disclaimer, DISCLAIMER } from "@/components/Disclaimer";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
@@ -18,7 +19,7 @@ import {
   listSessionProducts,
   listSessionRoutineAnalyses,
 } from "@/lib/api";
-import { getStoredSessionId, setStoredChatSessionId } from "@/lib/session";
+import { getOrCreateAppSession, setStoredChatSessionId } from "@/lib/session";
 
 const ANALYSIS_STATUS_LABELS: Record<SessionAnalysisSummary["status"], string> = {
   quality_rejected: "Rejected (image quality)",
@@ -52,11 +53,7 @@ export default function HistoryPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const sessionId = getStoredSessionId();
-    if (!sessionId) {
-      setStatus("no-session");
-      return;
-    }
+    const sessionId = await getOrCreateAppSession();
     setStatus("loading");
     setErrorMessage(null);
     try {
@@ -99,13 +96,13 @@ export default function HistoryPage() {
   }
 
   return (
+    <AuthGate>
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-16">
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">Session History</h1>
         <p className="text-neutral-600 dark:text-neutral-300">
-          Everything analyzed, compared, or asked in this browser session. Nothing here is
-          shared across devices or tied to an account -- clearing your browser storage clears
-          this history too.
+          Everything analyzed, compared, or asked under your account. Tied to your login, not
+          this browser -- signing in from another device shows the same history.
         </p>
       </div>
 
@@ -265,5 +262,6 @@ export default function HistoryPage() {
 
       <Disclaimer className="mt-auto" text={DISCLAIMER} />
     </main>
+    </AuthGate>
   );
 }

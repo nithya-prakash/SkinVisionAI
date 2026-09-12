@@ -59,15 +59,15 @@ async def test_unhandled_exception_returns_sanitized_500() -> None:
 
 
 @pytest.mark.asyncio
-async def test_controlled_404_unaffected_by_global_handler(client: AsyncClient) -> None:
-    response = await client.get(f"/api/sessions/{uuid4()}")
+async def test_controlled_404_unaffected_by_global_handler(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.get(f"/api/sessions/{uuid4()}")
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "session_not_found"
 
 
 @pytest.mark.asyncio
-async def test_malformed_uuid_path_param_returns_clean_422(client: AsyncClient) -> None:
-    response = await client.get("/api/analysis/not-a-uuid")
+async def test_malformed_uuid_path_param_returns_clean_422(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.get("/api/analysis/not-a-uuid")
     assert response.status_code == 422
     # FastAPI/Pydantic's own coercion error -- no traceback, no path.
     assert "Traceback" not in response.text
@@ -75,7 +75,7 @@ async def test_malformed_uuid_path_param_returns_clean_422(client: AsyncClient) 
 
 
 @pytest.mark.asyncio
-async def test_analysis_not_found_unaffected_by_global_handler(client: AsyncClient) -> None:
-    response = await client.get(f"/api/analysis/{uuid4()}")
+async def test_analysis_not_found_unaffected_by_global_handler(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.get(f"/api/analysis/{uuid4()}")
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "analysis_not_found"

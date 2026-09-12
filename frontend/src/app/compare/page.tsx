@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AuthGate } from "@/components/AuthGate";
 import { Disclaimer, DISCLAIMER } from "@/components/Disclaimer";
 import { ProductComparer } from "./ProductComparer";
 import { SingleProductAnalyzer } from "./SingleProductAnalyzer";
@@ -11,6 +12,7 @@ export default function ComparePage() {
   const [mode, setMode] = useState<Mode>("analyze");
 
   return (
+    <AuthGate>
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-16">
       <h1 className="text-2xl font-semibold tracking-tight">
         {mode === "analyze" ? "Ingredient Analysis" : "Product Comparison"}
@@ -67,5 +69,6 @@ export default function ComparePage() {
 
       <Disclaimer className="mt-auto" text={DISCLAIMER} />
     </main>
+    </AuthGate>
   );
 }

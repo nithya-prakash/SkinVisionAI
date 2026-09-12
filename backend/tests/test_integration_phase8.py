@@ -39,14 +39,14 @@ def _call(tool_name: str, arguments: dict, call_id: str = "call-1") -> AgentLLMR
 
 
 @pytest.mark.asyncio
-async def test_full_session_upload_analysis_chat_lifecycle(client: AsyncClient) -> None:
+async def test_full_session_upload_analysis_chat_lifecycle(authenticated_client: AsyncClient) -> None:
     # 1. SESSION
-    session = await client.post("/api/sessions")
+    session = await authenticated_client.post("/api/sessions")
     assert session.status_code == 201
     session_id = session.json()["id"]
 
     # 2. UPLOAD SYNTHETIC IMAGE (+ QUALITY CHECK, real engine)
-    upload = await client.post(
+    upload = await authenticated_client.post(
         "/api/analysis/upload",
         files={
             "file": ("photo.jpg", to_bytes(make_acceptable_image(800, 800), "JPEG"), "image/jpeg")
@@ -59,20 +59,20 @@ async def test_full_session_upload_analysis_chat_lifecycle(client: AsyncClient) 
     analysis_id = upload_body["analysis_id"]
 
     # Confirm retrievable pre-analysis state before running the pipeline.
-    pre = await client.get(f"/api/analysis/{analysis_id}")
+    pre = await authenticated_client.get(f"/api/analysis/{analysis_id}")
     assert pre.json()["status"] == "ready_for_visual_analysis"
 
     # 3. VISUAL ANALYSIS (real engine)
-    visual = await client.post(f"/api/analysis/{analysis_id}/visual-analysis")
+    visual = await authenticated_client.post(f"/api/analysis/{analysis_id}/visual-analysis")
     assert visual.status_code == 200
     assert len(visual.json()["observations"]) == 5
 
     # Confirm the session's analysis list now reflects completion.
-    analyses = await client.get(f"/api/sessions/{session_id}/analyses")
+    analyses = await authenticated_client.get(f"/api/sessions/{session_id}/analyses")
     assert analyses.json()["analyses"][0]["status"] == "completed"
 
     # 4. ANALYZE A PRODUCT (real deterministic engine), for the chat to reference
-    product = await client.post(
+    product = await authenticated_client.post(
         "/api/products/analyze",
         json={
             "session_id": session_id,
@@ -94,7 +94,7 @@ async def test_full_session_upload_analysis_chat_lifecycle(client: AsyncClient) 
         ]
     )
     try:
-        chat = await client.post(
+        chat = await authenticated_client.post(
             "/api/agent/chat",
             json={
                 "message": "Can I use this product's ingredients together?",
@@ -116,39 +116,39 @@ async def test_full_session_upload_analysis_chat_lifecycle(client: AsyncClient) 
     # 10. PERSIST MESSAGE + TRACE happened as part of the call above --
     # verify by retrieving fresh from the database (a new request).
     # 11. RETRIEVE CHAT HISTORY
-    history = await client.get(f"/api/chat/sessions/{chat_session_id}/messages")
+    history = await authenticated_client.get(f"/api/chat/sessions/{chat_session_id}/messages")
     assert history.status_code == 200
     messages = history.json()["messages"]
     assert [m["role"] for m in messages] == ["user", "assistant"]
     assert messages[1]["content"] == chat_body["answer"]
     assert messages[1]["tool_trace"] == chat_body["tool_trace"]
 
-    chat_session_row = await client.get(f"/api/chat/sessions/{chat_session_id}")
+    chat_session_row = await authenticated_client.get(f"/api/chat/sessions/{chat_session_id}")
     assert chat_session_row.json()["product_id"] == product_id
     assert chat_session_row.json()["session_id"] == session_id
 
     # 12. RETRIEVE ANALYSIS (the visual analysis from step 3)
-    final_analysis = await client.get(f"/api/analysis/{analysis_id}")
+    final_analysis = await authenticated_client.get(f"/api/analysis/{analysis_id}")
     assert final_analysis.status_code == 200
     assert final_analysis.json()["status"] == "completed"
     assert final_analysis.json()["visual_analysis"]["observations"] == visual.json()["observations"]
 
     # Session-level view ties everything together.
-    chats = await client.get(f"/api/sessions/{session_id}/chats")
+    chats = await authenticated_client.get(f"/api/sessions/{session_id}/chats")
     assert chats.json()["chats"][0]["id"] == chat_session_id
     assert chats.json()["chats"][0]["message_count"] == 2
 
 
 @pytest.mark.asyncio
 async def test_multi_step_agent_reasoning_with_real_tool_calls_persists_full_trace(
-    client: AsyncClient,
+    authenticated_client: AsyncClient,
 ) -> None:
     """A second integration scenario: the agent calls a real (not linked)
     tool mid-conversation, demonstrating the full
     tool-call -> deterministic-result -> validated-explanation pipeline
     without any pre-existing linked context.
     """
-    session_id = (await client.post("/api/sessions")).json()["id"]
+    session_id = (await authenticated_client.post("/api/sessions")).json()["id"]
 
     app.dependency_overrides[_provider] = lambda: FakeLLMProvider(
         agent_script=[
@@ -160,7 +160,7 @@ async def test_multi_step_agent_reasoning_with_real_tool_calls_persists_full_tra
         ]
     )
     try:
-        chat = await client.post(
+        chat = await authenticated_client.post(
             "/api/agent/chat",
             json={
                 "message": "Can I use retinol and salicylic acid together?",
@@ -175,7 +175,7 @@ async def test_multi_step_agent_reasoning_with_real_tool_calls_persists_full_tra
     assert body["tool_trace"][0]["tool_name"] == "check_ingredient_compatibility"
     assert body["tool_trace"][0]["result"]["interactions"][0]["severity"] == "caution"
 
-    history = await client.get(f"/api/chat/sessions/{body['chat_session_id']}/messages")
+    history = await authenticated_client.get(f"/api/chat/sessions/{body['chat_session_id']}/messages")
     assert history.json()["messages"][-1]["tool_trace"][0]["tool_name"] == (
         "check_ingredient_compatibility"
     )

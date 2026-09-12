@@ -41,7 +41,7 @@ npm run dev -- --port 3010
 ## Running the backend tests
 
 ```bash
-docker compose exec api pytest -q                 # full suite (756 tests)
+docker compose exec api pytest -q                 # full suite (773 tests)
 docker compose exec api alembic check                # confirm no pending migrations
 ```
 

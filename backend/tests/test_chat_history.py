@@ -53,25 +53,25 @@ def _default_fake_provider():
 
 
 @pytest.mark.asyncio
-async def test_get_chat_session_unknown_id_returns_404(client: AsyncClient) -> None:
-    response = await client.get(f"/api/chat/sessions/{uuid.uuid4()}")
+async def test_get_chat_session_unknown_id_returns_404(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.get(f"/api/chat/sessions/{uuid.uuid4()}")
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "chat_session_not_found"
 
 
 @pytest.mark.asyncio
-async def test_list_chat_messages_unknown_id_returns_404(client: AsyncClient) -> None:
-    response = await client.get(f"/api/chat/sessions/{uuid.uuid4()}/messages")
+async def test_list_chat_messages_unknown_id_returns_404(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.get(f"/api/chat/sessions/{uuid.uuid4()}/messages")
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_send_message_then_retrieve_history(client: AsyncClient) -> None:
+async def test_send_message_then_retrieve_history(authenticated_client: AsyncClient) -> None:
     _use_script([_final("Hi there!")])
-    chat = await client.post("/api/agent/chat", json={"message": "Hello"})
+    chat = await authenticated_client.post("/api/agent/chat", json={"message": "Hello"})
     chat_session_id = chat.json()["chat_session_id"]
 
-    response = await client.get(f"/api/chat/sessions/{chat_session_id}/messages")
+    response = await authenticated_client.get(f"/api/chat/sessions/{chat_session_id}/messages")
     assert response.status_code == 200
     body = response.json()
     assert body["chat_session_id"] == chat_session_id
@@ -81,50 +81,50 @@ async def test_send_message_then_retrieve_history(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_persisted_messages_survive_across_requests(client: AsyncClient) -> None:
+async def test_persisted_messages_survive_across_requests(authenticated_client: AsyncClient) -> None:
     """Simulates a page refresh: history is retrieved via a fresh request,
     not carried over from the one that created it.
     """
     _use_script([_final("First answer.")])
-    first = await client.post("/api/agent/chat", json={"message": "First question"})
+    first = await authenticated_client.post("/api/agent/chat", json={"message": "First question"})
     chat_session_id = first.json()["chat_session_id"]
 
     # A brand-new request, as if the page had just reloaded.
-    response = await client.get(f"/api/chat/sessions/{chat_session_id}/messages")
+    response = await authenticated_client.get(f"/api/chat/sessions/{chat_session_id}/messages")
     assert len(response.json()["messages"]) == 2
 
 
 @pytest.mark.asyncio
-async def test_multi_turn_conversation_all_persisted(client: AsyncClient) -> None:
+async def test_multi_turn_conversation_all_persisted(authenticated_client: AsyncClient) -> None:
     _use_script([_final("Answer one.")])
-    first = await client.post("/api/agent/chat", json={"message": "Question one"})
+    first = await authenticated_client.post("/api/agent/chat", json={"message": "Question one"})
     chat_session_id = first.json()["chat_session_id"]
 
     _use_script([_final("Answer two.")])
-    await client.post(
+    await authenticated_client.post(
         "/api/agent/chat", json={"message": "Question two", "chat_session_id": chat_session_id}
     )
 
-    response = await client.get(f"/api/chat/sessions/{chat_session_id}/messages")
+    response = await authenticated_client.get(f"/api/chat/sessions/{chat_session_id}/messages")
     contents = [m["content"] for m in response.json()["messages"]]
     assert contents == ["Question one", "Answer one.", "Question two", "Answer two."]
 
 
 @pytest.mark.asyncio
-async def test_persisted_trace_reconstructed_on_retrieval(client: AsyncClient) -> None:
+async def test_persisted_trace_reconstructed_on_retrieval(authenticated_client: AsyncClient) -> None:
     _use_script(
         [
             _call("check_ingredient_compatibility", {"ingredients": ["retinol", "salicylic acid"]}),
             _final("These have a documented caution-level interaction."),
         ]
     )
-    chat = await client.post(
+    chat = await authenticated_client.post(
         "/api/agent/chat", json={"message": "Can I combine retinol and salicylic acid?"}
     )
     chat_session_id = chat.json()["chat_session_id"]
     live_trace = chat.json()["tool_trace"]
 
-    response = await client.get(f"/api/chat/sessions/{chat_session_id}/messages")
+    response = await authenticated_client.get(f"/api/chat/sessions/{chat_session_id}/messages")
     assistant_message = response.json()["messages"][-1]
     assert assistant_message["tool_trace"] == live_trace
     assert assistant_message["tool_trace"][0]["tool_name"] == "check_ingredient_compatibility"
@@ -132,17 +132,17 @@ async def test_persisted_trace_reconstructed_on_retrieval(client: AsyncClient) -
 
 
 @pytest.mark.asyncio
-async def test_failed_tool_call_trace_also_persisted(client: AsyncClient) -> None:
+async def test_failed_tool_call_trace_also_persisted(authenticated_client: AsyncClient) -> None:
     _use_script(
         [
             _call("execute_python", {"code": "..."}),
             _final("I can't run code, but I can check ingredient compatibility."),
         ]
     )
-    chat = await client.post("/api/agent/chat", json={"message": "Run some code for me"})
+    chat = await authenticated_client.post("/api/agent/chat", json={"message": "Run some code for me"})
     chat_session_id = chat.json()["chat_session_id"]
 
-    response = await client.get(f"/api/chat/sessions/{chat_session_id}/messages")
+    response = await authenticated_client.get(f"/api/chat/sessions/{chat_session_id}/messages")
     trace = response.json()["messages"][-1]["tool_trace"]
     assert trace[0]["success"] is False
     assert "unknown tool" in trace[0]["error"]
@@ -152,15 +152,15 @@ async def test_failed_tool_call_trace_also_persisted(client: AsyncClient) -> Non
 
 
 @pytest.mark.asyncio
-async def test_link_to_product_injects_context_without_a_tool_call(client: AsyncClient) -> None:
-    product = await client.post(
+async def test_link_to_product_injects_context_without_a_tool_call(authenticated_client: AsyncClient) -> None:
+    product = await authenticated_client.post(
         "/api/products/analyze",
         json={"name": "Retinol Serum", "raw_ingredient_text": "Retinol"},
     )
     product_id = product.json()["product_id"]
 
     _use_script([_final("No documented interactions were found in this system's rule set.")])
-    chat = await client.post(
+    chat = await authenticated_client.post(
         "/api/agent/chat",
         json={"message": "Tell me about this product", "link": {"product_id": product_id}},
     )
@@ -169,21 +169,21 @@ async def test_link_to_product_injects_context_without_a_tool_call(client: Async
     assert body["tool_trace"][0]["tool_name"] == "linked_product_analysis"
     assert body["tool_trace"][0]["success"] is True
 
-    session_row = await client.get(f"/api/chat/sessions/{body['chat_session_id']}")
+    session_row = await authenticated_client.get(f"/api/chat/sessions/{body['chat_session_id']}")
     assert session_row.json()["product_id"] == product_id
 
 
 @pytest.mark.asyncio
-async def test_link_to_skin_analysis_injects_context(client: AsyncClient) -> None:
-    upload = await client.post(
+async def test_link_to_skin_analysis_injects_context(authenticated_client: AsyncClient) -> None:
+    upload = await authenticated_client.post(
         "/api/analysis/upload",
         files={"file": ("photo.jpg", to_bytes(make_acceptable_image(800, 800), "JPEG"), "image/jpeg")},
     )
     analysis_id = upload.json()["analysis_id"]
-    await client.post(f"/api/analysis/{analysis_id}/visual-analysis")
+    await authenticated_client.post(f"/api/analysis/{analysis_id}/visual-analysis")
 
     _use_script([_final("Here is a summary of what was observed.")])
-    chat = await client.post(
+    chat = await authenticated_client.post(
         "/api/agent/chat",
         json={"message": "What did you see?", "link": {"skin_analysis_id": analysis_id}},
     )
@@ -192,8 +192,8 @@ async def test_link_to_skin_analysis_injects_context(client: AsyncClient) -> Non
 
 
 @pytest.mark.asyncio
-async def test_link_to_routine_analysis_record_injects_context(client: AsyncClient) -> None:
-    routine = await client.post(
+async def test_link_to_routine_analysis_record_injects_context(authenticated_client: AsyncClient) -> None:
+    routine = await authenticated_client.post(
         "/api/routine/analyze",
         json={"persist": True, "products": [{"product_name": "A", "raw_ingredients": "Retinol"}]},
     )
@@ -201,7 +201,7 @@ async def test_link_to_routine_analysis_record_injects_context(client: AsyncClie
     assert routine_id is not None
 
     _use_script([_final("Here is what your routine analysis found.")])
-    chat = await client.post(
+    chat = await authenticated_client.post(
         "/api/agent/chat",
         json={"message": "Explain my routine", "link": {"routine_analysis_id": routine_id}},
     )
@@ -210,8 +210,8 @@ async def test_link_to_routine_analysis_record_injects_context(client: AsyncClie
 
 
 @pytest.mark.asyncio
-async def test_link_to_comparison_record_injects_context(client: AsyncClient) -> None:
-    comparison = await client.post(
+async def test_link_to_comparison_record_injects_context(authenticated_client: AsyncClient) -> None:
+    comparison = await authenticated_client.post(
         "/api/products/compare",
         json={
             "persist": True,
@@ -223,7 +223,7 @@ async def test_link_to_comparison_record_injects_context(client: AsyncClient) ->
     assert comparison_id is not None
 
     _use_script([_final("Here is how the two products compare.")])
-    chat = await client.post(
+    chat = await authenticated_client.post(
         "/api/agent/chat",
         json={"message": "Compare these for me", "link": {"comparison_id": comparison_id}},
     )
@@ -232,8 +232,8 @@ async def test_link_to_comparison_record_injects_context(client: AsyncClient) ->
 
 
 @pytest.mark.asyncio
-async def test_link_to_unknown_product_returns_400(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_link_to_unknown_product_returns_400(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         "/api/agent/chat",
         json={"message": "Hi", "link": {"product_id": str(uuid.uuid4())}},
     )
@@ -242,8 +242,8 @@ async def test_link_to_unknown_product_returns_400(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_link_requires_exactly_one_field_set(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_link_requires_exactly_one_field_set(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         "/api/agent/chat",
         json={
             "message": "Hi",
@@ -254,21 +254,21 @@ async def test_link_requires_exactly_one_field_set(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_link_ignored_when_continuing_an_existing_chat_session(client: AsyncClient) -> None:
-    product = await client.post(
+async def test_link_ignored_when_continuing_an_existing_chat_session(authenticated_client: AsyncClient) -> None:
+    product = await authenticated_client.post(
         "/api/products/analyze",
         json={"name": "A", "raw_ingredient_text": "Retinol"},
     )
     product_id = product.json()["product_id"]
 
     _use_script([_final("Hello.")])
-    first = await client.post("/api/agent/chat", json={"message": "Hi"})
+    first = await authenticated_client.post("/api/agent/chat", json={"message": "Hi"})
     chat_session_id = first.json()["chat_session_id"]
 
     # Continuing the same (unlinked) chat session with a `link` set must
     # not retroactively link it -- linkage is fixed at creation.
     _use_script([_final("No documented interactions were found in this system's rule set.")])
-    second = await client.post(
+    second = await authenticated_client.post(
         "/api/agent/chat",
         json={
             "message": "Follow-up",
@@ -277,7 +277,7 @@ async def test_link_ignored_when_continuing_an_existing_chat_session(client: Asy
         },
     )
     assert second.status_code == 200
-    session_row = await client.get(f"/api/chat/sessions/{chat_session_id}")
+    session_row = await authenticated_client.get(f"/api/chat/sessions/{chat_session_id}")
     assert session_row.json()["product_id"] is None
 
 
@@ -286,16 +286,16 @@ async def test_link_ignored_when_continuing_an_existing_chat_session(client: Asy
 
 @pytest.mark.asyncio
 async def test_llm_failure_message_and_empty_trace_still_persisted_and_retrievable(
-    client: AsyncClient,
+    authenticated_client: AsyncClient,
 ) -> None:
     app.dependency_overrides[_provider] = lambda: FakeLLMProvider(
         raise_error=LLMTimeoutError("simulated")
     )
-    chat = await client.post("/api/agent/chat", json={"message": "Hello"})
+    chat = await authenticated_client.post("/api/agent/chat", json={"message": "Hello"})
     assert chat.json()["status"] == "llm_unavailable"
     chat_session_id = chat.json()["chat_session_id"]
 
-    response = await client.get(f"/api/chat/sessions/{chat_session_id}/messages")
+    response = await authenticated_client.get(f"/api/chat/sessions/{chat_session_id}/messages")
     messages = response.json()["messages"]
     assert len(messages) == 2
     assert messages[1]["role"] == "assistant"
@@ -303,14 +303,14 @@ async def test_llm_failure_message_and_empty_trace_still_persisted_and_retrievab
 
 
 @pytest.mark.asyncio
-async def test_validation_failure_persisted_with_empty_answer(client: AsyncClient) -> None:
+async def test_validation_failure_persisted_with_empty_answer(authenticated_client: AsyncClient) -> None:
     _use_script([_final("Retinol and niacinamide are completely safe together.")])
-    chat = await client.post(
+    chat = await authenticated_client.post(
         "/api/agent/chat", json={"message": "Are retinol and niacinamide safe together?"}
     )
     assert chat.json()["status"] == "validation_error"
     chat_session_id = chat.json()["chat_session_id"]
 
-    response = await client.get(f"/api/chat/sessions/{chat_session_id}/messages")
+    response = await authenticated_client.get(f"/api/chat/sessions/{chat_session_id}/messages")
     messages = response.json()["messages"]
     assert messages[1]["content"] == ""

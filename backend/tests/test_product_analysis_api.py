@@ -11,8 +11,8 @@ ANALYZE_URL = "/api/products/analyze"
 
 
 @pytest.mark.asyncio
-async def test_analyze_simple_product_returns_structured_response(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_analyze_simple_product_returns_structured_response(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         ANALYZE_URL,
         json={
             "name": "Gentle Hydrating Serum",
@@ -34,8 +34,8 @@ async def test_analyze_simple_product_returns_structured_response(client: AsyncC
 
 
 @pytest.mark.asyncio
-async def test_analyze_product_surfaces_caution_interaction(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_analyze_product_surfaces_caution_interaction(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         ANALYZE_URL,
         json={"name": "Retinol Serum", "raw_ingredient_text": "Retinol, Glycolic Acid"},
     )
@@ -52,13 +52,13 @@ async def test_analyze_product_surfaces_caution_interaction(client: AsyncClient)
 
 @pytest.mark.asyncio
 async def test_analyze_product_reverse_ingredient_order_same_interaction(
-    client: AsyncClient,
+    authenticated_client: AsyncClient,
 ) -> None:
-    forward = await client.post(
+    forward = await authenticated_client.post(
         ANALYZE_URL,
         json={"name": "A", "raw_ingredient_text": "Retinol, Salicylic Acid"},
     )
-    reverse = await client.post(
+    reverse = await authenticated_client.post(
         ANALYZE_URL,
         json={"name": "B", "raw_ingredient_text": "Salicylic Acid, Retinol"},
     )
@@ -69,8 +69,8 @@ async def test_analyze_product_reverse_ingredient_order_same_interaction(
 
 
 @pytest.mark.asyncio
-async def test_analyze_product_reports_unknown_ingredients(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_analyze_product_reports_unknown_ingredients(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         ANALYZE_URL,
         json={"name": "Mystery Cream", "raw_ingredient_text": "Water, NovelComplexXYZ"},
     )
@@ -83,8 +83,8 @@ async def test_analyze_product_reports_unknown_ingredients(client: AsyncClient) 
 
 
 @pytest.mark.asyncio
-async def test_analyze_product_ambiguous_alias_is_not_guessed(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_analyze_product_ambiguous_alias_is_not_guessed(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         ANALYZE_URL,
         json={"name": "Retinoid Cream", "raw_ingredient_text": "Vitamin A, Water"},
     )
@@ -98,9 +98,9 @@ async def test_analyze_product_ambiguous_alias_is_not_guessed(client: AsyncClien
 
 @pytest.mark.asyncio
 async def test_analyze_product_duplicate_ingredients_no_duplicate_findings(
-    client: AsyncClient,
+    authenticated_client: AsyncClient,
 ) -> None:
-    response = await client.post(
+    response = await authenticated_client.post(
         ANALYZE_URL,
         json={
             "name": "Duplicate Test",
@@ -114,24 +114,24 @@ async def test_analyze_product_duplicate_ingredients_no_duplicate_findings(
 
 
 @pytest.mark.asyncio
-async def test_analyze_product_rejects_empty_name(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_analyze_product_rejects_empty_name(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         ANALYZE_URL, json={"name": "", "raw_ingredient_text": "Water"}
     )
     assert response.status_code == 422
 
 
 @pytest.mark.asyncio
-async def test_analyze_product_rejects_empty_ingredient_text(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_analyze_product_rejects_empty_ingredient_text(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         ANALYZE_URL, json={"name": "Test", "raw_ingredient_text": ""}
     )
     assert response.status_code == 422
 
 
 @pytest.mark.asyncio
-async def test_analyze_product_rejects_unknown_category(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_analyze_product_rejects_unknown_category(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         ANALYZE_URL,
         json={"name": "Test", "category": "miracle_potion", "raw_ingredient_text": "Water"},
     )
@@ -140,9 +140,9 @@ async def test_analyze_product_rejects_unknown_category(client: AsyncClient) -> 
 
 @pytest.mark.asyncio
 async def test_analyze_product_response_never_says_safe_for_unknown(
-    client: AsyncClient,
+    authenticated_client: AsyncClient,
 ) -> None:
-    response = await client.post(
+    response = await authenticated_client.post(
         ANALYZE_URL,
         json={"name": "Mystery Serum", "raw_ingredient_text": "NovelComplexXYZ"},
     )

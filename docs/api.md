@@ -16,6 +16,42 @@ returns `{"detail": {"code": "internal_error", "message": "An
 unexpected error occurred."}}` — never a stack trace, a filesystem path,
 or any other internal detail. See [docs/safety.md](safety.md#global-error-handling).
 
+## Authentication (release-hardening follow-up)
+
+Every endpoint below except `GET /health` and the four `/api/auth/*`
+endpoints themselves requires a signed-in session: a JWT in an httpOnly,
+`SameSite=Lax` cookie (`skinvision_auth`), checked via
+`Depends(get_current_user)`. There is no bearer-token/header option —
+the cookie is the only mechanism, set by `/api/auth/register` and
+`/api/auth/login` and sent automatically by the browser on every
+same-cookie-jar request. See [docs/persistence.md](persistence.md#security)
+for the design and [docs/safety.md](safety.md#session-ownership-updated-by-the-release-hardening-follow-up)
+for the threat model.
+
+### `POST /api/auth/register`
+
+`{ "email": "...", "password": "..." }` (password: 8–128 chars). Creates
+the account and its one `UserSession`, signs the caller in immediately
+(sets the cookie), and returns the new user. `409 email_already_registered`
+for a duplicate email. Rate-limited (`Depends(rate_limit_auth)`).
+
+### `POST /api/auth/login`
+
+`{ "email": "...", "password": "..." }`. Sets the same cookie as
+register. `401 invalid_credentials` for either a wrong password or an
+unknown email — deliberately not distinguished, so the response can't be
+used to enumerate registered emails. Rate-limited.
+
+### `POST /api/auth/logout`
+
+No body. Clears the cookie. Always `204`, even if no one was signed in —
+logout is idempotent, not an authenticated action.
+
+### `GET /api/auth/me`
+
+Returns the signed-in user (`id`, `email`, `session_id`, `created_at`).
+`401 not_authenticated` if the cookie is missing, expired, or invalid.
+
 ## Implemented
 
 ### `GET /health` (Phase 1)
@@ -33,8 +69,10 @@ Uploads an image and runs the non-diagnostic image quality gate
 synchronously. `multipart/form-data` with:
 
 - `file` (required) — a JPEG or PNG image
-- `session_id` (optional) — an existing anonymous session id; if omitted
-  or unknown, a new session is created
+- `session_id` (optional) — must be the caller's own session id if
+  given; if omitted or unknown, the caller's own session is used
+  (`403 session_forbidden` if it names a real session belonging to a
+  different user — see [Authentication](#authentication-release-hardening-follow-up))
 
 **Responses:**
 
@@ -454,11 +492,12 @@ stateful by design so a conversation can be continued.
 }
 ```
 
-`session_id`/`chat_session_id` are optional (omit both to start a fresh
-anonymous session and a fresh conversation; pass back the
+`session_id`/`chat_session_id` are optional (omit both to use the
+caller's own session and start a fresh conversation; pass back the
 `chat_session_id` from a prior response to continue it — see
 docs/agent.md's conversational-memory section for exactly what "continue"
-means here). `context` is optional, client-supplied, plain data — like
+means here). Either naming a real resource that belongs to a different
+user is `403 session_forbidden`. `context` is optional, client-supplied, plain data — like
 `message`, always untrusted; it cannot make the agent skip calling a tool
 to ground a fact.
 
@@ -538,19 +577,23 @@ table of failure modes.
 ## Sessions (Phase 8; Phase 9 adds products/routine-analyses/comparisons)
 
 Application-level session retrieval — separate from
-`get_or_create_session`'s existing implicit write-path behavior used by
-every other endpoint above. See [docs/persistence.md](persistence.md).
+`get_or_create_session_for_user`'s existing implicit write-path behavior
+used by every other endpoint above. Every route below requires
+authentication and enforces ownership — see
+[docs/persistence.md](persistence.md).
 
 ### `POST /api/sessions`
 
-Creates a new anonymous session explicitly. Response
+Returns the authenticated caller's own session — idempotent, since a
+user has exactly one (created at registration). Response
 (`app.schemas.analysis.SessionRead`): `{"id": "…uuid…", "created_at": "…"}`.
 
 ### `GET /api/sessions/{session_id}`
 
 Session metadata. `404` (`session_not_found`) for an unknown id — a read
 endpoint naming a specific id never silently creates a new, unrelated
-session (unlike write paths).
+one (unlike write paths). `403` (`session_forbidden`) for an id that
+exists but belongs to a different user.
 
 ### `GET /api/sessions/{session_id}/analyses`
 

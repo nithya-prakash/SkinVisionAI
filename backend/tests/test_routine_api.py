@@ -24,8 +24,8 @@ def _product(name, ingredients, category=None, time_of_day="unspecified"):
 
 
 @pytest.mark.asyncio
-async def test_routine_analyze_returns_structured_result(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_routine_analyze_returns_structured_result(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         ANALYZE_URL,
         json={
             "products": [
@@ -50,8 +50,8 @@ async def test_routine_analyze_returns_structured_result(client: AsyncClient) ->
 
 
 @pytest.mark.asyncio
-async def test_routine_analyze_overlapping_actives(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_routine_analyze_overlapping_actives(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         ANALYZE_URL,
         json={
             "products": [
@@ -66,8 +66,8 @@ async def test_routine_analyze_overlapping_actives(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_routine_analyze_unscheduled_unknown_category(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_routine_analyze_unscheduled_unknown_category(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         ANALYZE_URL, json={"products": [_product("Mystery", "Water")]}
     )
     body = response.json()
@@ -77,14 +77,14 @@ async def test_routine_analyze_unscheduled_unknown_category(client: AsyncClient)
 
 
 @pytest.mark.asyncio
-async def test_routine_analyze_rejects_empty_products_list(client: AsyncClient) -> None:
-    response = await client.post(ANALYZE_URL, json={"products": []})
+async def test_routine_analyze_rejects_empty_products_list(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(ANALYZE_URL, json={"products": []})
     assert response.status_code == 422
 
 
 @pytest.mark.asyncio
-async def test_routine_analyze_rejects_missing_ingredients(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_routine_analyze_rejects_missing_ingredients(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         ANALYZE_URL,
         json={"products": [{"product_name": "A", "raw_ingredients": ""}]},
     )
@@ -92,21 +92,21 @@ async def test_routine_analyze_rejects_missing_ingredients(client: AsyncClient) 
 
 
 @pytest.mark.asyncio
-async def test_routine_analyze_is_deterministic(client: AsyncClient) -> None:
+async def test_routine_analyze_is_deterministic(authenticated_client: AsyncClient) -> None:
     payload = {
         "products": [
             _product("Retinol Serum", "Retinol", "treatment", "PM"),
             _product("Acid Toner", "Glycolic Acid", "toner", "PM"),
         ]
     }
-    first = await client.post(ANALYZE_URL, json=payload)
-    second = await client.post(ANALYZE_URL, json=payload)
+    first = await authenticated_client.post(ANALYZE_URL, json=payload)
+    second = await authenticated_client.post(ANALYZE_URL, json=payload)
     assert first.json() == second.json()
 
 
 @pytest.mark.asyncio
-async def test_routine_analyze_never_exposes_internal_paths(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_routine_analyze_never_exposes_internal_paths(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         ANALYZE_URL, json={"products": [_product("A", "Water")]}
     )
     assert "/app/rules" not in response.text
@@ -117,15 +117,15 @@ async def test_routine_analyze_never_exposes_internal_paths(client: AsyncClient)
 
 
 @pytest.mark.asyncio
-async def test_routine_analyze_without_persist_flag_returns_null_id(client: AsyncClient) -> None:
-    response = await client.post(ANALYZE_URL, json={"products": [_product("A", "Retinol")]})
+async def test_routine_analyze_without_persist_flag_returns_null_id(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(ANALYZE_URL, json={"products": [_product("A", "Retinol")]})
     assert response.status_code == 200
     assert response.json()["id"] is None
 
 
 @pytest.mark.asyncio
-async def test_routine_analyze_with_persist_true_returns_an_id(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_routine_analyze_with_persist_true_returns_an_id(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         ANALYZE_URL, json={"persist": True, "products": [_product("A", "Retinol")]}
     )
     assert response.status_code == 200
@@ -134,12 +134,12 @@ async def test_routine_analyze_with_persist_true_returns_an_id(client: AsyncClie
 
 @pytest.mark.asyncio
 async def test_routine_analyze_persist_true_result_matches_non_persisted_result(
-    client: AsyncClient,
+    authenticated_client: AsyncClient,
 ) -> None:
     payload = {"products": [_product("A", "Retinol"), _product("B", "Glycolic Acid")]}
-    without = await client.post(ANALYZE_URL, json=payload)
+    without = await authenticated_client.post(ANALYZE_URL, json=payload)
 
-    with_persist = await client.post(ANALYZE_URL, json={**payload, "persist": True})
+    with_persist = await authenticated_client.post(ANALYZE_URL, json={**payload, "persist": True})
 
     without_body = without.json()
     with_body = with_persist.json()

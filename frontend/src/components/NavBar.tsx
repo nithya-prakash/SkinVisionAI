@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { logout } from "@/lib/auth";
+import { useCurrentUser } from "@/lib/useCurrentUser";
 
 const LINKS = [
   { href: "/analyze", label: "Skin Check" },
@@ -14,6 +16,49 @@ const LINKS = [
 
 function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function AuthLinks() {
+  const router = useRouter();
+  const { status, user, refresh } = useCurrentUser();
+
+  if (status === "loading") {
+    return <span className="text-sm text-neutral-400">…</span>;
+  }
+
+  if (status === "signed-out" || !user) {
+    return (
+      <span className="flex items-center gap-4 text-sm">
+        <Link href="/login" className="text-neutral-600 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white">
+          Log in
+        </Link>
+        <Link
+          href="/signup"
+          className="rounded-full bg-neutral-900 px-4 py-1.5 font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-white dark:text-black dark:hover:bg-neutral-200"
+        >
+          Sign up
+        </Link>
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex items-center gap-4 text-sm">
+      <span className="hidden text-neutral-500 sm:inline dark:text-neutral-400">{user.email}</span>
+      <button
+        type="button"
+        onClick={async () => {
+          await logout();
+          refresh();
+          router.push("/");
+          router.refresh();
+        }}
+        className="rounded-full border border-neutral-300 px-4 py-1.5 font-medium transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900"
+      >
+        Log out
+      </button>
+    </span>
+  );
 }
 
 export function NavBar() {
@@ -47,6 +92,10 @@ export function NavBar() {
             );
           })}
         </ul>
+
+        <div className="hidden sm:block">
+          <AuthLinks />
+        </div>
 
         <button
           type="button"
@@ -84,6 +133,9 @@ export function NavBar() {
               </li>
             );
           })}
+          <li className="px-2 py-2">
+            <AuthLinks />
+          </li>
         </ul>
       )}
     </header>

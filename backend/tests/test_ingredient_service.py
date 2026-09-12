@@ -11,6 +11,7 @@ from app.database import AsyncSessionLocal
 from app.models.product import Product
 from app.schemas.common import ProductCategory
 from app.services.ingredient_service import analyze_product
+from tests.helpers.auth import make_user_and_session
 
 
 @pytest.mark.asyncio
@@ -59,12 +60,8 @@ async def test_analyze_product_persists_interactions_when_present() -> None:
 
 @pytest.mark.asyncio
 async def test_analyze_product_reuses_existing_session() -> None:
-    from app.models.session import UserSession
-
     async with AsyncSessionLocal() as db:
-        existing = UserSession()
-        db.add(existing)
-        await db.flush()
+        _, existing = await make_user_and_session(db)
         await db.commit()
         existing_id = existing.id
 

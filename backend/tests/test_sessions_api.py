@@ -30,8 +30,8 @@ def _final(answer: str) -> AgentLLMResponse:
 
 
 @pytest.mark.asyncio
-async def test_create_session(client: AsyncClient) -> None:
-    response = await client.post("/api/sessions")
+async def test_create_session(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post("/api/sessions")
     assert response.status_code == 201
     body = response.json()
     assert uuid.UUID(body["id"])
@@ -39,50 +39,50 @@ async def test_create_session(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_retrieve_existing_session(client: AsyncClient) -> None:
-    created = (await client.post("/api/sessions")).json()
-    response = await client.get(f"/api/sessions/{created['id']}")
+async def test_retrieve_existing_session(authenticated_client: AsyncClient) -> None:
+    created = (await authenticated_client.post("/api/sessions")).json()
+    response = await authenticated_client.get(f"/api/sessions/{created['id']}")
     assert response.status_code == 200
     assert response.json()["id"] == created["id"]
 
 
 @pytest.mark.asyncio
-async def test_retrieve_unknown_session_returns_404(client: AsyncClient) -> None:
-    response = await client.get(f"/api/sessions/{uuid.uuid4()}")
+async def test_retrieve_unknown_session_returns_404(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.get(f"/api/sessions/{uuid.uuid4()}")
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "session_not_found"
 
 
 @pytest.mark.asyncio
-async def test_unknown_session_never_silently_created_on_read(client: AsyncClient) -> None:
+async def test_unknown_session_never_silently_created_on_read(authenticated_client: AsyncClient) -> None:
     """A GET naming an unknown id must 404, not fabricate a new session
     (unlike write paths, which legitimately create one when none is
     given) -- see app.services.session_service.get_session's docstring.
     """
     unknown_id = uuid.uuid4()
-    response = await client.get(f"/api/sessions/{unknown_id}")
+    response = await authenticated_client.get(f"/api/sessions/{unknown_id}")
     assert response.status_code == 404
     # Confirm it really wasn't created behind the scenes either.
-    second = await client.get(f"/api/sessions/{unknown_id}")
+    second = await authenticated_client.get(f"/api/sessions/{unknown_id}")
     assert second.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_list_analyses_for_unknown_session_returns_404(client: AsyncClient) -> None:
-    response = await client.get(f"/api/sessions/{uuid.uuid4()}/analyses")
+async def test_list_analyses_for_unknown_session_returns_404(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.get(f"/api/sessions/{uuid.uuid4()}/analyses")
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_list_chats_for_unknown_session_returns_404(client: AsyncClient) -> None:
-    response = await client.get(f"/api/sessions/{uuid.uuid4()}/chats")
+async def test_list_chats_for_unknown_session_returns_404(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.get(f"/api/sessions/{uuid.uuid4()}/chats")
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_list_analyses_empty_for_a_fresh_session(client: AsyncClient) -> None:
-    session_id = (await client.post("/api/sessions")).json()["id"]
-    response = await client.get(f"/api/sessions/{session_id}/analyses")
+async def test_list_analyses_empty_for_a_fresh_session(authenticated_client: AsyncClient) -> None:
+    session_id = (await authenticated_client.post("/api/sessions")).json()["id"]
+    response = await authenticated_client.get(f"/api/sessions/{session_id}/analyses")
     assert response.status_code == 200
     body = response.json()
     assert body["session_id"] == session_id
@@ -90,9 +90,9 @@ async def test_list_analyses_empty_for_a_fresh_session(client: AsyncClient) -> N
 
 
 @pytest.mark.asyncio
-async def test_list_analyses_includes_an_uploaded_image(client: AsyncClient) -> None:
-    session_id = (await client.post("/api/sessions")).json()["id"]
-    upload = await client.post(
+async def test_list_analyses_includes_an_uploaded_image(authenticated_client: AsyncClient) -> None:
+    session_id = (await authenticated_client.post("/api/sessions")).json()["id"]
+    upload = await authenticated_client.post(
         "/api/analysis/upload",
         files={"file": ("photo.jpg", to_bytes(make_acceptable_image(800, 800), "JPEG"), "image/jpeg")},
         data={"session_id": session_id},
@@ -100,7 +100,7 @@ async def test_list_analyses_includes_an_uploaded_image(client: AsyncClient) -> 
     assert upload.status_code == 201
     analysis_id = upload.json()["analysis_id"]
 
-    response = await client.get(f"/api/sessions/{session_id}/analyses")
+    response = await authenticated_client.get(f"/api/sessions/{session_id}/analyses")
     body = response.json()
     assert len(body["analyses"]) == 1
     assert body["analyses"][0]["id"] == analysis_id
@@ -108,27 +108,27 @@ async def test_list_analyses_includes_an_uploaded_image(client: AsyncClient) -> 
 
 
 @pytest.mark.asyncio
-async def test_list_chats_empty_for_a_fresh_session(client: AsyncClient) -> None:
-    session_id = (await client.post("/api/sessions")).json()["id"]
-    response = await client.get(f"/api/sessions/{session_id}/chats")
+async def test_list_chats_empty_for_a_fresh_session(authenticated_client: AsyncClient) -> None:
+    session_id = (await authenticated_client.post("/api/sessions")).json()["id"]
+    response = await authenticated_client.get(f"/api/sessions/{session_id}/chats")
     assert response.status_code == 200
     assert response.json()["chats"] == []
 
 
 @pytest.mark.asyncio
-async def test_list_chats_includes_a_chat_with_message_count(client: AsyncClient) -> None:
+async def test_list_chats_includes_a_chat_with_message_count(authenticated_client: AsyncClient) -> None:
     app.dependency_overrides[_provider] = lambda: FakeLLMProvider(
         agent_script=[_final("Hello!")]
     )
     try:
-        session_id = (await client.post("/api/sessions")).json()["id"]
-        chat = await client.post(
+        session_id = (await authenticated_client.post("/api/sessions")).json()["id"]
+        chat = await authenticated_client.post(
             "/api/agent/chat", json={"message": "Hi", "session_id": session_id}
         )
         assert chat.status_code == 200
         chat_session_id = chat.json()["chat_session_id"]
 
-        response = await client.get(f"/api/sessions/{session_id}/chats")
+        response = await authenticated_client.get(f"/api/sessions/{session_id}/chats")
         body = response.json()
         assert len(body["chats"]) == 1
         assert body["chats"][0]["id"] == chat_session_id
@@ -141,27 +141,27 @@ async def test_list_chats_includes_a_chat_with_message_count(client: AsyncClient
 
 
 @pytest.mark.asyncio
-async def test_list_products_for_unknown_session_returns_404(client: AsyncClient) -> None:
-    response = await client.get(f"/api/sessions/{uuid.uuid4()}/products")
+async def test_list_products_for_unknown_session_returns_404(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.get(f"/api/sessions/{uuid.uuid4()}/products")
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_list_routine_analyses_for_unknown_session_returns_404(client: AsyncClient) -> None:
-    response = await client.get(f"/api/sessions/{uuid.uuid4()}/routine-analyses")
+async def test_list_routine_analyses_for_unknown_session_returns_404(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.get(f"/api/sessions/{uuid.uuid4()}/routine-analyses")
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_list_comparisons_for_unknown_session_returns_404(client: AsyncClient) -> None:
-    response = await client.get(f"/api/sessions/{uuid.uuid4()}/comparisons")
+async def test_list_comparisons_for_unknown_session_returns_404(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.get(f"/api/sessions/{uuid.uuid4()}/comparisons")
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_list_products_empty_for_a_fresh_session(client: AsyncClient) -> None:
-    session_id = (await client.post("/api/sessions")).json()["id"]
-    response = await client.get(f"/api/sessions/{session_id}/products")
+async def test_list_products_empty_for_a_fresh_session(authenticated_client: AsyncClient) -> None:
+    session_id = (await authenticated_client.post("/api/sessions")).json()["id"]
+    response = await authenticated_client.get(f"/api/sessions/{session_id}/products")
     assert response.status_code == 200
     body = response.json()
     assert body["session_id"] == session_id
@@ -169,9 +169,9 @@ async def test_list_products_empty_for_a_fresh_session(client: AsyncClient) -> N
 
 
 @pytest.mark.asyncio
-async def test_list_products_includes_an_analyzed_product(client: AsyncClient) -> None:
-    session_id = (await client.post("/api/sessions")).json()["id"]
-    analyze = await client.post(
+async def test_list_products_includes_an_analyzed_product(authenticated_client: AsyncClient) -> None:
+    session_id = (await authenticated_client.post("/api/sessions")).json()["id"]
+    analyze = await authenticated_client.post(
         "/api/products/analyze",
         json={
             "session_id": session_id,
@@ -182,7 +182,7 @@ async def test_list_products_includes_an_analyzed_product(client: AsyncClient) -
     assert analyze.status_code == 201
     product_id = analyze.json()["product_id"]
 
-    response = await client.get(f"/api/sessions/{session_id}/products")
+    response = await authenticated_client.get(f"/api/sessions/{session_id}/products")
     body = response.json()
     assert len(body["products"]) == 1
     assert body["products"][0]["id"] == product_id
@@ -192,25 +192,25 @@ async def test_list_products_includes_an_analyzed_product(client: AsyncClient) -
 
 
 @pytest.mark.asyncio
-async def test_list_routine_analyses_empty_for_a_fresh_session(client: AsyncClient) -> None:
-    session_id = (await client.post("/api/sessions")).json()["id"]
-    response = await client.get(f"/api/sessions/{session_id}/routine-analyses")
+async def test_list_routine_analyses_empty_for_a_fresh_session(authenticated_client: AsyncClient) -> None:
+    session_id = (await authenticated_client.post("/api/sessions")).json()["id"]
+    response = await authenticated_client.get(f"/api/sessions/{session_id}/routine-analyses")
     assert response.status_code == 200
     assert response.json()["routine_analyses"] == []
 
 
 @pytest.mark.asyncio
-async def test_list_routine_analyses_only_includes_persisted_ones(client: AsyncClient) -> None:
-    session_id = (await client.post("/api/sessions")).json()["id"]
+async def test_list_routine_analyses_only_includes_persisted_ones(authenticated_client: AsyncClient) -> None:
+    session_id = (await authenticated_client.post("/api/sessions")).json()["id"]
 
     # Not persisted -- must not appear.
-    not_persisted = await client.post(
+    not_persisted = await authenticated_client.post(
         "/api/routine/analyze",
         json={"session_id": session_id, "products": [{"product_name": "A", "raw_ingredients": "Water"}]},
     )
     assert not_persisted.json()["id"] is None
 
-    persisted = await client.post(
+    persisted = await authenticated_client.post(
         "/api/routine/analyze",
         json={
             "session_id": session_id,
@@ -224,7 +224,7 @@ async def test_list_routine_analyses_only_includes_persisted_ones(client: AsyncC
     record_id = persisted.json()["id"]
     assert record_id is not None
 
-    response = await client.get(f"/api/sessions/{session_id}/routine-analyses")
+    response = await authenticated_client.get(f"/api/sessions/{session_id}/routine-analyses")
     body = response.json()
     assert len(body["routine_analyses"]) == 1
     assert body["routine_analyses"][0]["id"] == record_id
@@ -233,18 +233,18 @@ async def test_list_routine_analyses_only_includes_persisted_ones(client: AsyncC
 
 
 @pytest.mark.asyncio
-async def test_list_comparisons_empty_for_a_fresh_session(client: AsyncClient) -> None:
-    session_id = (await client.post("/api/sessions")).json()["id"]
-    response = await client.get(f"/api/sessions/{session_id}/comparisons")
+async def test_list_comparisons_empty_for_a_fresh_session(authenticated_client: AsyncClient) -> None:
+    session_id = (await authenticated_client.post("/api/sessions")).json()["id"]
+    response = await authenticated_client.get(f"/api/sessions/{session_id}/comparisons")
     assert response.status_code == 200
     assert response.json()["comparisons"] == []
 
 
 @pytest.mark.asyncio
-async def test_list_comparisons_only_includes_persisted_ones(client: AsyncClient) -> None:
-    session_id = (await client.post("/api/sessions")).json()["id"]
+async def test_list_comparisons_only_includes_persisted_ones(authenticated_client: AsyncClient) -> None:
+    session_id = (await authenticated_client.post("/api/sessions")).json()["id"]
 
-    persisted = await client.post(
+    persisted = await authenticated_client.post(
         "/api/products/compare",
         json={
             "session_id": session_id,
@@ -256,7 +256,7 @@ async def test_list_comparisons_only_includes_persisted_ones(client: AsyncClient
     record_id = persisted.json()["id"]
     assert record_id is not None
 
-    response = await client.get(f"/api/sessions/{session_id}/comparisons")
+    response = await authenticated_client.get(f"/api/sessions/{session_id}/comparisons")
     body = response.json()
     assert len(body["comparisons"]) == 1
     assert body["comparisons"][0]["id"] == record_id

@@ -19,8 +19,8 @@ def _payload(name_a, ingredients_a, name_b, ingredients_b):
 
 
 @pytest.mark.asyncio
-async def test_compare_partially_overlapping_products(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_compare_partially_overlapping_products(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         COMPARE_URL,
         json=_payload(
             "Product A", "Retinol, Niacinamide, Glycerin",
@@ -42,8 +42,8 @@ async def test_compare_partially_overlapping_products(client: AsyncClient) -> No
 
 
 @pytest.mark.asyncio
-async def test_compare_identical_products(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_compare_identical_products(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         COMPARE_URL, json=_payload("A", "Water, Niacinamide", "B", "Water, Niacinamide")
     )
     body = response.json()
@@ -53,16 +53,16 @@ async def test_compare_identical_products(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_compare_never_computes_a_score(client: AsyncClient) -> None:
-    response = await client.post(COMPARE_URL, json=_payload("A", "Retinol", "B", "Water"))
+async def test_compare_never_computes_a_score(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(COMPARE_URL, json=_payload("A", "Retinol", "B", "Water"))
     body_text = response.text.lower()
     for banned in ("score", "better_product", "winner"):
         assert banned not in body_text
 
 
 @pytest.mark.asyncio
-async def test_compare_rejects_missing_ingredient_text(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_compare_rejects_missing_ingredient_text(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(
         COMPARE_URL,
         json={
             "product_a": {"name": "A", "raw_ingredient_text": ""},
@@ -73,10 +73,10 @@ async def test_compare_rejects_missing_ingredient_text(client: AsyncClient) -> N
 
 
 @pytest.mark.asyncio
-async def test_compare_is_deterministic(client: AsyncClient) -> None:
+async def test_compare_is_deterministic(authenticated_client: AsyncClient) -> None:
     payload = _payload("A", "Retinol, Glycolic Acid", "B", "Niacinamide")
-    first = await client.post(COMPARE_URL, json=payload)
-    second = await client.post(COMPARE_URL, json=payload)
+    first = await authenticated_client.post(COMPARE_URL, json=payload)
+    second = await authenticated_client.post(COMPARE_URL, json=payload)
     assert first.json() == second.json()
 
 
@@ -84,30 +84,30 @@ async def test_compare_is_deterministic(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_compare_without_persist_flag_returns_null_id(client: AsyncClient) -> None:
-    response = await client.post(COMPARE_URL, json=_payload("A", "Retinol", "B", "Niacinamide"))
+async def test_compare_without_persist_flag_returns_null_id(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.post(COMPARE_URL, json=_payload("A", "Retinol", "B", "Niacinamide"))
     assert response.status_code == 200
     assert response.json()["id"] is None
 
 
 @pytest.mark.asyncio
-async def test_compare_with_persist_true_returns_an_id(client: AsyncClient) -> None:
+async def test_compare_with_persist_true_returns_an_id(authenticated_client: AsyncClient) -> None:
     payload = _payload("A", "Retinol", "B", "Niacinamide")
     payload["persist"] = True
-    response = await client.post(COMPARE_URL, json=payload)
+    response = await authenticated_client.post(COMPARE_URL, json=payload)
     assert response.status_code == 200
     assert response.json()["id"] is not None
 
 
 @pytest.mark.asyncio
 async def test_compare_persist_true_result_matches_non_persisted_result(
-    client: AsyncClient,
+    authenticated_client: AsyncClient,
 ) -> None:
     payload = _payload("A", "Retinol, Niacinamide", "B", "Retinol, Salicylic Acid")
-    without = await client.post(COMPARE_URL, json=payload)
+    without = await authenticated_client.post(COMPARE_URL, json=payload)
 
     payload["persist"] = True
-    with_persist = await client.post(COMPARE_URL, json=payload)
+    with_persist = await authenticated_client.post(COMPARE_URL, json=payload)
 
     without_body = without.json()
     with_body = with_persist.json()

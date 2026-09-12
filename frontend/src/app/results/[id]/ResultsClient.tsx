@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { AuthGate } from "@/components/AuthGate";
 import { Disclaimer } from "@/components/Disclaimer";
 import { ErrorState } from "@/components/ErrorState";
 import { LimitationList } from "@/components/LimitationList";
@@ -87,6 +88,7 @@ export function ResultsClient({ analysisId }: { analysisId: string }) {
   }
 
   return (
+    <AuthGate>
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-6 py-16">
       <h1 className="text-2xl font-semibold tracking-tight">Visual Observations</h1>
 
@@ -200,5 +202,6 @@ export function ResultsClient({ analysisId }: { analysisId: string }) {
 
       <Disclaimer className="mt-auto" />
     </main>
+    </AuthGate>
   );
 }

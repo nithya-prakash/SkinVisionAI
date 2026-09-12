@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { AIExplanation } from "@/components/AIExplanation";
+import { AuthGate } from "@/components/AuthGate";
 import { Disclaimer, DISCLAIMER } from "@/components/Disclaimer";
 import { ErrorState } from "@/components/ErrorState";
 import { LimitationList } from "@/components/LimitationList";
@@ -116,6 +117,7 @@ export default function RoutinePage() {
   }
 
   return (
+    <AuthGate>
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-16">
       <h1 className="text-2xl font-semibold tracking-tight">Routine Builder</h1>
       <p className="text-neutral-600 dark:text-neutral-300">
@@ -402,5 +404,6 @@ export default function RoutinePage() {
 
       <Disclaimer className="mt-auto" text={DISCLAIMER} />
     </main>
+    </AuthGate>
   );
 }

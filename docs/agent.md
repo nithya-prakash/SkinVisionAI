@@ -242,6 +242,16 @@ never the raw exception text, which could carry request/account details.
 
 ## Security
 
+- **Requires authentication; enforces session ownership**
+  (release-hardening follow-up). `POST /api/agent/chat` and
+  `GET /api/chat/sessions/{id}`/`.../messages` all require
+  `Depends(get_current_user)`. A `session_id` or `chat_session_id` that
+  exists but belongs to a different user is a `403`, never honored as
+  if it were the caller's own — proven by
+  `tests/test_auth_api.py::test_a_user_cannot_continue_another_users_chat`,
+  which registers a second user and shows they're rejected from
+  continuing, reading, or listing the first user's chat even holding
+  its exact id.
 - **No arbitrary code execution, ever.** The only thing `execute_tool`
   can invoke is a `ToolDefinition.handler` already registered in
   `ToolRegistry` at import time, looked up by an exact string match. A
@@ -282,8 +292,14 @@ never the raw exception text, which could carry request/account details.
   instead — see [docs/safety.md](safety.md#tool-call-safety).
 - **`POST /api/agent/chat` is rate-limited** (Phase 12 follow-up, 20
   requests/minute per client IP by default) since it carries a real LLM
-  token cost in an app with no authentication — see
+  token cost, independent of and in addition to the authentication
+  required to reach it at all (release-hardening follow-up) — see
   [docs/safety.md](safety.md#rate-limiting).
+- **Requires authentication and enforces session ownership**
+  (release-hardening follow-up): a `session_id`/`chat_session_id` that
+  exists but belongs to a different user is a `403`, not a silent
+  fallback — see [Security](#security) below and
+  [docs/persistence.md](persistence.md#security).
 
 ## API
 
@@ -306,12 +322,17 @@ way to record a failed tool call) — see
 required.
 
 `app.services.agent_service.run_agent_chat` resolves/creates a
-`ChatSession` (reusing one by `chat_session_id` alone is sufficient —
-this app has no authentication anywhere else either, so requiring the
-original anonymous `session_id` to also match would be an inconsistent
-extra check with no real security benefit), persists the user message,
-runs the (database-free) agent loop, then persists the assistant message
-and every `AgentTrace` row.
+`ChatSession` (reusing one by `chat_session_id` alone used to be
+sufficient — this app had no authentication anywhere else either, so
+requiring the original `session_id` to also match would have been an
+inconsistent extra check with no real security benefit. Release-
+hardening follow-up: reusing an existing `chat_session_id` now checks
+its owning `UserSession.user_id` against the authenticated caller,
+raising `SessionOwnershipError` — see
+[Security](#security) below — on a mismatch, rather than trusting
+possession of the id alone), persists the user message, runs the
+(database-free) agent loop, then persists the assistant message and
+every `AgentTrace` row.
 
 **Phase 8** adds two things on top, without touching the loop's core
 logic: (1) `GET /api/chat/sessions/{id}/messages` reads the same rows

@@ -47,6 +47,7 @@ from app.schemas.explanation import (
 from app.schemas.ingredient import CompatibilityResult
 from app.schemas.product import ProductAnalyzeRequest, ProductCompareRequest, ProductComparisonResult
 from app.schemas.routine import RoutineAnalysisRequest, RoutineAnalysisResult
+from app.models.session import UserSession
 from app.services.persistence_service import persist_comparison, persist_routine_analysis
 
 logger = logging.getLogger(__name__)
@@ -166,12 +167,17 @@ async def explain_product(
 
 
 async def explain_comparison(
-    request: ProductCompareRequest, provider: LLMProvider, db: AsyncSession | None = None
+    request: ProductCompareRequest,
+    provider: LLMProvider,
+    db: AsyncSession | None = None,
+    session: UserSession | None = None,
 ) -> ComparisonExplanationResponse:
     result: ProductComparisonResult = compare_products(request)
     if request.persist:
-        assert db is not None, "db is required when request.persist is True"
-        record = await persist_comparison(db, request, result)
+        assert db is not None and session is not None, (
+            "db and session are required when request.persist is True"
+        )
+        record = await persist_comparison(db, session, request, result)
         result = result.model_copy(update={"id": record.id})
     context = build_comparison_context(result)
 
@@ -198,12 +204,17 @@ async def explain_comparison(
 
 
 async def explain_routine(
-    request: RoutineAnalysisRequest, provider: LLMProvider, db: AsyncSession | None = None
+    request: RoutineAnalysisRequest,
+    provider: LLMProvider,
+    db: AsyncSession | None = None,
+    session: UserSession | None = None,
 ) -> RoutineExplanationResponse:
     result: RoutineAnalysisResult = analyze_routine(request)
     if request.persist:
-        assert db is not None, "db is required when request.persist is True"
-        record = await persist_routine_analysis(db, request, result)
+        assert db is not None and session is not None, (
+            "db and session are required when request.persist is True"
+        )
+        record = await persist_routine_analysis(db, session, request, result)
         result = result.model_copy(update={"id": record.id})
     context = build_routine_context(result)
 
